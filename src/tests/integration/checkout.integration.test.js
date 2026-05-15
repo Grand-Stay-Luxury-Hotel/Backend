@@ -1,0 +1,52 @@
+// src/tests/integration/checkout.integration.test.js
+import jwt from 'jsonwebtoken';
+import request from 'supertest';
+import { jest } from '@jest/globals';
+import { registrarCheckout } from '../../services/checkout.service.js';
+import { createApp } from '../../app.js';
+import { PagoRechazadoError } from '../../utils/errors.js';
+
+jest.mock('../../services/checkout.service.js', () => ({
+  registrarCheckout: jest.fn(),
+}));
+
+const app = createApp();
+const secreto = 'secreto_pruebas_12345678901234567890';
+
+function token(rol) {
+  return jwt.sign({ id_usuario: 1, rol, id_recepcionista: 1 }, secreto);
+}
+
+describe('Integración HU-B06 check-out', () => {
+  beforeEach(() => {
+    process.env.JWT_SECRET = secreto;
+    registrarCheckout.mockReset();
+  });
+
+  test('POST /checkout/:reservaId válido retorna 200 + resumen_factura', () => {
+    registrarCheckout.mockResolvedValue({ id_checkout: 8, resumen_factura: { total: 1000 }, mensaje: 'Check-out procesado exitosamente' });
+    return request(app).post('/checkout/42').set('Authorization', `Bearer ${token('Recepcionista')}`).send({}).expect(200);
+  });
+
+  test('POST /checkout/:reservaId sin saldo pendiente retorna 200 sin cargo adicional', () => {
+    registrarCheckout.mockResolvedValue({ id_checkout: 8, resumen_factura: { saldo_cobrado: 0 }, estado_pago: 'aprobado' });
+    return request(app).post('/checkout/42').set('Authorization', `Bearer ${token('Recepcionista')}`).send({}).expect(200);
+  });
+
+  test('POST /checkout/:reservaId con pago fallido retorna 402', () => {
+    registrarCheckout.mockRejectedValue(new PagoRechazadoError());
+    return request(app).post('/checkout/42').set('Authorization', `Bearer ${token('Recepcionista')}`).send({}).expect(402);
+  });
+
+  test('POST /checkout/:reservaId sin auth retorna 401', () => request(app).post('/checkout/42').send({}).expect(401));
+
+  test('Habitación queda en estado limpieza tras checkout exitoso', () => {
+    registrarCheckout.mockResolvedValue({ id_checkout: 8, resumen_factura: {}, estado_habitacion: 'limpieza' });
+    return request(app)
+      .post('/checkout/42')
+      .set('Authorization', `Bearer ${token('Recepcionista')}`)
+      .send({})
+      .expect(200)
+      .expect((res) => expect(res.body.estado_habitacion).toBe('limpieza'));
+  });
+});
