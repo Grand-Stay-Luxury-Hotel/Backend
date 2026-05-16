@@ -3,6 +3,7 @@ import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import swaggerUi from 'swagger-ui-express';
 import authRoutes from './routes/auth.routes.js';
 import habitacionesRoutes from './routes/habitaciones.routes.js';
 import reservasRoutes from './routes/reservas.routes.js';
@@ -11,10 +12,16 @@ import checkoutRoutes from './routes/checkout.routes.js';
 import consumosRoutes from './routes/consumos.routes.js';
 import inventarioRoutes from './routes/inventario.routes.js';
 import reportesRoutes from './routes/reportes.routes.js';
+import { swaggerSpec } from './docs/swagger.js';
 import { errorResponse } from './utils/errors.js';
 
 export function createApp() {
   const app = express();
+
+  app.get('/api-docs.json', (_req, res) => {
+    res.status(200).json(swaggerSpec);
+  });
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
   app.use(helmet());
   app.use(cors());

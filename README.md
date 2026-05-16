@@ -96,6 +96,16 @@ El backend queda disponible en `http://localhost:4000`.
 
 ## Docker
 
+ Documentacion
+## Swagger / OpenAPI
+
+Con el servidor en ejecucion, la documentacion interactiva esta disponible en:
+
+- Swagger UI: `http://localhost:4000/api-docs`
+- Especificacion JSON: `http://localhost:4000/api-docs.json`
+
+## Endpoints Principales
+=======
 El servicio se containeriza de forma independiente. Ver [`DOCKER.md`](./DOCKER.md) para instrucciones completas.
 
 ```powershell
@@ -120,6 +130,7 @@ Todos los endpoints protegidos requieren el header:
 ```http
 Authorization: Bearer <token>
 ```
+ main
 
 ### Salud
 
