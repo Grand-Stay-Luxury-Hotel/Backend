@@ -13,6 +13,10 @@ export function validarHashBcrypt(passwordHash) {
   return Number(match[1]) >= 12;
 }
 
+function validarHashSha256(passwordHash) {
+  return /^[a-f0-9]{64}$/i.test(passwordHash ?? '');
+}
+
 export function verificarPassword(password, passwordHash) {
   if (!password || !passwordHash) return false;
 
@@ -24,6 +28,12 @@ export function verificarPassword(password, passwordHash) {
 
   if (passwordHash.startsWith('sha256:')) {
     const esperado = Buffer.from(passwordHash.replace('sha256:', ''), 'hex');
+    const recibido = crypto.createHash('sha256').update(password).digest();
+    return esperado.length === recibido.length && crypto.timingSafeEqual(esperado, recibido);
+  }
+
+  if (validarHashSha256(passwordHash)) {
+    const esperado = Buffer.from(passwordHash, 'hex');
     const recibido = crypto.createHash('sha256').update(password).digest();
     return esperado.length === recibido.length && crypto.timingSafeEqual(esperado, recibido);
   }
@@ -76,7 +86,7 @@ export async function login({ usuario, password, otp }) {
     throw new NoAutorizadoError('Credenciales incorrectas');
   }
 
-  if (!validarHashBcrypt(encontrado.password_hash) && !encontrado.password_hash.startsWith('plain:')) {
+  if (!validarHashBcrypt(encontrado.password_hash) && !encontrado.password_hash.startsWith('plain:') && !validarHashSha256(encontrado.password_hash)) {
     throw new NoAutorizadoError('Credenciales incorrectas');
   }
 

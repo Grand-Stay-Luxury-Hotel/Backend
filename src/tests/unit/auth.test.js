@@ -18,6 +18,10 @@ describe('HU-B09 auth.service', () => {
     expect(verificarPassword('secreto', 'sha256:df733656293a19c54f69093ba916f0a1a2a3c151fc95c13f3a794c2631eeb3a6')).toBe(true);
   });
 
+  test('verifica password con hash sha256 sin prefijo usado por los datos semilla', () => {
+    expect(verificarPassword('Admin2024!', '5a55c7873ed7338f35d782adb513d336a36086ddec0fa4b6444fda6d440387c2')).toBe(true);
+  });
+
   test('verifica password con bcrypt real', () => {
     const hash = bcrypt.hashSync('secreto', 12);
     expect(verificarPassword('secreto', hash)).toBe(true);
