@@ -6,7 +6,7 @@ function validarFechas(fechaEntrada, fechaSalida) {
   const entrada = new Date(`${fechaEntrada}T00:00:00Z`);
   const salida = new Date(`${fechaSalida}T00:00:00Z`);
   const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
+  hoy.setUTCHours(0, 0, 0, 0);
 
   if (!fechaEntrada || !fechaSalida || Number.isNaN(entrada.getTime()) || Number.isNaN(salida.getTime())) {
     throw new ParametrosInvalidosError('fechaEntrada y fechaSalida son obligatorias y deben tener formato YYYY-MM-DD');
