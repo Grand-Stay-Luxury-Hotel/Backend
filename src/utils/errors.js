@@ -52,6 +52,18 @@ export class ReservaEstadoInvalidoError extends AppError {
   }
 }
 
+export class RecursoNoEncontradoError extends AppError {
+  constructor(mensaje = 'El recurso solicitado no existe') {
+    super('RECURSO_NO_ENCONTRADO', mensaje, 404);
+  }
+}
+
+export class EntidadNoProcesableError extends AppError {
+  constructor(mensaje = 'La entidad no cumple las condiciones para esta operacion', detalle = null) {
+    super('ENTIDAD_NO_PROCESABLE', mensaje, 422, detalle);
+  }
+}
+
 export function errorResponse(error) {
   const statusCode = error.statusCode ?? 500;
   const respuesta = {

@@ -15,6 +15,8 @@ export async function verifyToken(req, _res, next) {
       id: payload.id ?? payload.id_usuario,
       id_usuario: payload.id_usuario ?? payload.id,
       id_recepcionista: payload.id_recepcionista ?? null,
+      id_personal: payload.id_personal ?? null,
+      id_admin: payload.id_admin ?? null,
       rol: payload.rol,
       email: payload.email,
     };
@@ -31,7 +33,11 @@ export function authorizeRoles(...rolesPermitidos) {
         throw new NoAutorizadoError();
       }
 
-      if (!rolesPermitidos.includes(req.user.rol)) {
+      const normalizarRol = (rol) => String(rol ?? '').replace(/\s+/g, '').toLowerCase();
+      const rolUsuario = normalizarRol(req.user.rol);
+      const permitido = rolesPermitidos.some((rol) => normalizarRol(rol) === rolUsuario);
+
+      if (!permitido) {
         throw new AccesoDenegadoError();
       }
 

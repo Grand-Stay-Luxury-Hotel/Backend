@@ -1,7 +1,7 @@
 {
   "name": "grand-stay-backend",
   "version": "1.0.0",
-  "description": "Backend Grand-Stay para HU-B01 a HU-B06",
+  "description": "Backend Grand-Stay para HU-B01 a HU-B12",
   "type": "module",
   "main": "src/index.js",
   "scripts": {
@@ -12,6 +12,7 @@
     "test:integration": "jest src/tests/integration"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",

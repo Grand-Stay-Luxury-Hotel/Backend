@@ -3,10 +3,14 @@ import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import disponibilidadRoutes from './routes/disponibilidad.routes.js';
+import authRoutes from './routes/auth.routes.js';
+import habitacionesRoutes from './routes/habitaciones.routes.js';
 import reservasRoutes from './routes/reservas.routes.js';
 import checkinRoutes from './routes/checkin.routes.js';
 import checkoutRoutes from './routes/checkout.routes.js';
+import consumosRoutes from './routes/consumos.routes.js';
+import inventarioRoutes from './routes/inventario.routes.js';
+import reportesRoutes from './routes/reportes.routes.js';
 import { errorResponse } from './utils/errors.js';
 
 export function createApp() {
@@ -25,10 +29,14 @@ export function createApp() {
     }
   });
 
-  app.use('/habitaciones', disponibilidadRoutes);
+  app.use('/auth', authRoutes);
+  app.use('/habitaciones', habitacionesRoutes);
   app.use('/reservas', reservasRoutes);
   app.use('/checkin', checkinRoutes);
   app.use('/checkout', checkoutRoutes);
+  app.use('/consumos', consumosRoutes);
+  app.use('/inventario', inventarioRoutes);
+  app.use('/reportes', reportesRoutes);
 
   app.use(async (_req, res, next) => {
     try {
