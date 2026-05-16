@@ -59,6 +59,13 @@ npm run dev
 
 El backend queda disponible por defecto en `http://localhost:4000`.
 
+## Swagger / OpenAPI
+
+Con el servidor en ejecucion, la documentacion interactiva esta disponible en:
+
+- Swagger UI: `http://localhost:4000/api-docs`
+- Especificacion JSON: `http://localhost:4000/api-docs.json`
+
 ## Endpoints Principales
 
 ### Salud

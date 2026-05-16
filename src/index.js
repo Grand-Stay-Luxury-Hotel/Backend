@@ -9,4 +9,5 @@ const app = createApp();
 
 app.listen(port, () => {
   console.log(`Backend Grand-Stay escuchando en el puerto ${port}`);
+  console.log(`Swagger UI disponible en http://localhost:${port}/api-docs`);
 });
