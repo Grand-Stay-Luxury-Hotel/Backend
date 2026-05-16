@@ -1,0 +1,20 @@
+services:
+  grandstay-backend:
+    build:
+      context: .
+    container_name: grandstay-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DB_HOST: ${DB_HOST:-host.docker.internal}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_NAME: ${DB_NAME:-grandstay_db}
+      DB_USER: ${DB_USER:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-}
+      JWT_SECRET: ${JWT_SECRET:-clave_desarrollo_no_usar_en_produccion_123456789}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      PAYMENT_GATEWAY_URL: ${PAYMENT_GATEWAY_URL:-https://api.pasarela-mock.com}
+      PAYMENT_GATEWAY_KEY: ${PAYMENT_GATEWAY_KEY:-mock_key}
+    ports:
+      - "4000:4000"
