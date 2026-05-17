@@ -1,57 +1,91 @@
-﻿# Grand-Stay Backend
+﻿# Grand-Stay · Backend
 
-Backend REST para el sistema de gestion hotelera Grand-Stay. Implementa las historias de usuario backend HU-B01 a HU-B12 usando Node.js, Express, JWT, MySQL/MariaDB y pruebas con Jest.
+API REST del sistema de gestión hotelera **Grand Stay**. Implementa las historias de usuario HU-B01 a HU-B12 con Node.js 20, Express, JWT, MySQL/MariaDB y cobertura de pruebas con Jest.
 
-## Alcance Implementado
+---
 
-| HU | Funcionalidad | Estado |
-| --- | --- | --- |
-| HU-B01 | Consulta de disponibilidad en tiempo real | Implementada |
-| HU-B02 | Creacion de reserva con anticipo | Implementada |
-| HU-B03 | Prevencion de overbooking | Implementada |
-| HU-B04 | Cancelacion de reserva con politica de penalizacion | Implementada |
-| HU-B05 | Registro de check-in | Implementada |
-| HU-B06 | Registro de check-out y liquidacion | Implementada |
-| HU-B07 | Gestion de estados de habitacion | Implementada |
-| HU-B08 | Registro de consumos adicionales | Implementada |
-| HU-B09 | Autenticacion y control de roles | Implementada |
-| HU-B10 | Log de auditoria de operaciones criticas | Implementada |
-| HU-B11 | Gestion de inventario con alerta de stock | Implementada |
-| HU-B12 | Reportes estadisticos mensuales | Implementada |
+## Tabla de contenidos
+
+- [Alcance implementado](#alcance-implementado)
+- [Requisitos](#requisitos)
+- [Configuración local](#configuración-local)
+- [Docker](#docker)
+- [Referencia de endpoints](#referencia-de-endpoints)
+- [Roles y autorización](#roles-y-autorización)
+- [Auditoría](#auditoría)
+- [Pruebas](#pruebas)
+
+---
+
+## Alcance implementado
+
+| HU     | Funcionalidad                                       | Estado       |
+|--------|-----------------------------------------------------|--------------|
+| HU-B01 | Consulta de disponibilidad en tiempo real           | ✅ Implementada |
+| HU-B02 | Creación de reserva con anticipo                    | ✅ Implementada |
+| HU-B03 | Prevención de overbooking                           | ✅ Implementada |
+| HU-B04 | Cancelación de reserva con política de penalización | ✅ Implementada |
+| HU-B05 | Registro de check-in                                | ✅ Implementada |
+| HU-B06 | Registro de check-out y liquidación                 | ✅ Implementada |
+| HU-B07 | Gestión de estados de habitación                    | ✅ Implementada |
+| HU-B08 | Registro de consumos adicionales                    | ✅ Implementada |
+| HU-B09 | Autenticación y control de roles (+ registro de huéspedes) | ✅ Implementada |
+| HU-B10 | Log de auditoría de operaciones críticas            | ✅ Implementada |
+| HU-B11 | Gestión de inventario con alerta de stock           | ✅ Implementada |
+| HU-B12 | Reportes estadísticos mensuales                     | ✅ Implementada |
+
+---
 
 ## Requisitos
 
+ codex-backend-seed-data
 - Node.js 20 o superior
 - MySQL o MariaDB
 - Base de datos creada desde `grandstay_db.sql`
 - Datos de prueba compartidos en `database/seed-data.sql`
+=======
+- **Node.js** 20 o superior
+- **MySQL** 8 o **MariaDB** 10.6+
+- Base de datos inicializada desde `grandstay_db.sql`
+ main
 
-## Configuracion
+---
 
-1. Instalar dependencias:
+## Configuración local
+
+### 1. Instalar dependencias
 
 ```bash
 npm install
 ```
 
-2. Crear el archivo `.env` tomando como base `.env.example`:
+### 2. Crear el archivo `.env`
 
 ```env
+# Base de datos
 DB_HOST=localhost
 DB_PORT=3306
 DB_NAME=grandstay_db
 DB_USER=grandstay_user
-DB_PASSWORD=your_password
-DB_NAME_TEST=grandstay_test
+DB_PASSWORD=tu_password_seguro
 
-JWT_SECRET=your_jwt_secret_min_32_chars
+# JWT
+JWT_SECRET=minimo_32_caracteres_aqui_1234567890
 JWT_EXPIRES_IN=8h
+
+# OTP para Administrador (valor por defecto en desarrollo)
 ADMIN_OTP=123456
 
+# Servidor
 PORT=4000
 NODE_ENV=development
+
+# Pasarela de pago (mock)
+PAYMENT_GATEWAY_URL=https://api.pasarela-mock.com
+PAYMENT_GATEWAY_KEY=mock_key
 ```
 
+ codex-backend-seed-data
 3. Cargar los datos de prueba despues de crear el esquema:
 
 ```bash
@@ -59,13 +93,27 @@ mysql -u grandstay_user -p grandstay_db < database/seed-data.sql
 ```
 
 4. Ejecutar el servidor:
+=======
+> **Advertencia de seguridad:** nunca uses los valores por defecto de `JWT_SECRET` ni `ADMIN_OTP` en producción.
+
+### 3. Levantar el servidor
+ main
 
 ```bash
+# Desarrollo (con hot-reload nativo de Node 20)
 npm run dev
+
+# Producción
+npm start
 ```
 
-El backend queda disponible por defecto en `http://localhost:4000`.
+El backend queda disponible en `http://localhost:4000`.
 
+---
+
+## Docker
+
+ Documentacion
 ## Swagger / OpenAPI
 
 Con el servidor en ejecucion, la documentacion interactiva esta disponible en:
@@ -74,16 +122,47 @@ Con el servidor en ejecucion, la documentacion interactiva esta disponible en:
 - Especificacion JSON: `http://localhost:4000/api-docs.json`
 
 ## Endpoints Principales
+=======
+El servicio se containeriza de forma independiente. Ver [`DOCKER.md`](./DOCKER.md) para instrucciones completas.
+
+```powershell
+# Levantar
+docker compose up -d --build
+
+# Ver logs
+docker compose logs -f
+
+# Detener
+docker compose down
+```
+
+Variables de entorno configurables en un archivo `.env` junto a `docker-compose.yml`. La imagen base es `node:20-alpine` y el puerto expuesto es `4000`.
+
+---
+
+## Referencia de endpoints
+
+Todos los endpoints protegidos requieren el header:
+
+```http
+Authorization: Bearer <token>
+```
+ main
 
 ### Salud
 
-- `GET /health`
+| Método | Ruta      | Auth | Descripción                     |
+|--------|-----------|------|---------------------------------|
+| GET    | `/health` | No   | Verifica que el servidor esté activo |
 
-### Autenticacion
+### Autenticación
 
-- `POST /auth/login`
+| Método | Ruta              | Auth | Descripción                            |
+|--------|-------------------|------|----------------------------------------|
+| POST   | `/auth/login`     | No   | Inicio de sesión para cualquier rol    |
+| POST   | `/auth/registro`  | No   | Registro de nuevo huésped (auto-login) |
 
-Body esperado:
+**Body — `POST /auth/login`:**
 
 ```json
 {
@@ -93,69 +172,108 @@ Body esperado:
 }
 ```
 
-El campo `otp` aplica para usuarios con rol `Administrador`.
+> El campo `otp` solo aplica para el rol `Administrador`.
+
+**Body — `POST /auth/registro`:**
+
+```json
+{
+  "nombre": "Juan",
+  "apellido": "García",
+  "email": "juan@email.com",
+  "password": "minimo8chars",
+  "telefono": "+57 300 000 0000",
+  "documento_identidad": "1234567890"
+}
+```
+
+> `telefono` y `documento_identidad` son opcionales. Devuelve 201 con el token JWT del huésped recién creado.
+
+**Respuesta de ambos endpoints:**
+
+```json
+{
+  "token": "<jwt>",
+  "expira_en": "8h",
+  "usuario": {
+    "id_usuario": 1,
+    "email": "juan@email.com",
+    "rol": "Huesped",
+    "id_huesped": 1,
+    "id_recepcionista": null,
+    "id_personal": null,
+    "id_admin": null
+  }
+}
+```
 
 ### Habitaciones
 
-- `GET /habitaciones/disponibilidad?fechaEntrada=YYYY-MM-DD&fechaSalida=YYYY-MM-DD&tipo=Deluxe&capacidad=2`
-- `PATCH /habitaciones/:id/estado`
+| Método | Ruta                                  | Auth | Roles permitidos                |
+|--------|---------------------------------------|------|---------------------------------|
+| GET    | `/habitaciones/disponibilidad`        | Sí   | Todos                           |
+| PATCH  | `/habitaciones/:id/estado`            | Sí   | Recepcionista, Administrador    |
 
-Body para cambio de estado:
+**Query params — disponibilidad:**
+
+```
+fechaEntrada=YYYY-MM-DD&fechaSalida=YYYY-MM-DD&tipo=Deluxe&capacidad=2
+```
+
+**Body — cambio de estado:**
 
 ```json
 {
   "estado": "limpieza",
-  "observaciones": "Habitacion lista para limpieza"
+  "observaciones": "Habitación lista para limpieza"
 }
 ```
 
-Estados soportados por la base de datos:
-
-- `disponible`
-- `ocupada`
-- `mantenimiento`
-- `limpieza`
-- `bloqueada`
+Estados válidos: `disponible` · `ocupada` · `mantenimiento` · `limpieza` · `bloqueada`
 
 ### Reservas
 
-- `POST /reservas`
-- `DELETE /reservas/:id`
+| Método | Ruta             | Auth | Roles permitidos                          |
+|--------|------------------|------|-------------------------------------------|
+| POST   | `/reservas`      | Sí   | Recepcionista, Administrador, Huesped     |
+| DELETE | `/reservas/:id`  | Sí   | Recepcionista, Administrador              |
 
 ### Check-in / Check-out
 
-- `POST /checkin/:reservaId`
-- `POST /checkout/:reservaId`
+| Método | Ruta                   | Auth | Roles permitidos           |
+|--------|------------------------|------|----------------------------|
+| POST   | `/checkin/:reservaId`  | Sí   | Recepcionista, Administrador |
+| POST   | `/checkout/:reservaId` | Sí   | Recepcionista, Administrador |
 
-### Consumos Adicionales
+### Consumos adicionales
 
-- `POST /consumos`
+| Método | Ruta        | Auth | Roles permitidos           |
+|--------|-------------|------|----------------------------|
+| POST   | `/consumos` | Sí   | Recepcionista              |
 
-Body esperado:
+**Body:**
 
 ```json
 {
   "habitacionId": 101,
   "tipo": "restaurante",
-  "descripcion": "Cena habitacion",
+  "descripcion": "Cena habitación",
   "cantidad": 1,
   "precio_unitario": 85000
 }
 ```
 
-Tipos soportados:
-
-- `restaurante`
-- `lavanderia`
-- `spa`
+Tipos válidos: `restaurante` · `lavanderia` · `spa`
 
 ### Inventario
 
-- `POST /inventario/consumo`
-- `GET /inventario/alertas`
-- `PATCH /inventario/:id/umbral`
+| Método | Ruta                       | Auth | Roles permitidos                          |
+|--------|----------------------------|------|-------------------------------------------|
+| POST   | `/inventario/consumo`      | Sí   | Administrador, PersonalLimpieza           |
+| GET    | `/inventario/alertas`      | Sí   | Administrador, PersonalLimpieza           |
+| PATCH  | `/inventario/:id/umbral`   | Sí   | Administrador                             |
 
-Body para consumo de insumo:
+**Body — consumo de insumo:**
 
 ```json
 {
@@ -169,63 +287,59 @@ Body para consumo de insumo:
 
 ### Reportes
 
-- `GET /reportes/ocupacion?mes=5&anio=2026`
-- `GET /reportes/ingresos`
+| Método | Ruta                   | Auth | Roles permitidos  |
+|--------|------------------------|------|-------------------|
+| GET    | `/reportes/ocupacion`  | Sí   | Administrador     |
+| GET    | `/reportes/ingresos`   | Sí   | Administrador     |
 
-## Roles
+**Query params:** `mes=5&anio=2026`
 
-Los endpoints protegidos esperan un JWT en el header:
+---
 
-```http
-Authorization: Bearer <token>
-```
+## Roles y autorización
 
-Roles usados segun la base de datos:
+El middleware verifica el JWT y extrae el rol. Los roles definidos en la base de datos son:
 
-- `Administrador`
-- `Recepcionista`
-- `PersonalLimpieza`
-- `ServicioTecnico`
-- `Huesped`
+| Rol              | Descripción                                    |
+|------------------|------------------------------------------------|
+| `Administrador`  | Acceso total + OTP requerido en login          |
+| `Recepcionista`  | Operaciones del día a día (reservas, checkin…) |
+| `PersonalLimpieza` | Gestión de habitaciones e inventario         |
+| `Huesped`        | Consulta de disponibilidad y reservas propias  |
 
-El middleware tambien acepta variantes como `Personal de Limpieza` para compatibilidad con pruebas.
+---
 
-## Auditoria
+## Auditoría
 
-Las operaciones criticas registran trazabilidad en `log_auditoria`, incluyendo:
+Las operaciones críticas quedan registradas en la tabla `log_auditoria` con los siguientes campos:
 
-- usuario
-- accion
-- tabla afectada
-- registro afectado
-- valor anterior
-- valor nuevo
-- IP
-- user agent
-- hash SHA-256 de integridad dentro de `datos_nuevos`
+- `id_usuario` — quién ejecutó la acción
+- `accion` — tipo (`INSERT`, `UPDATE`, `DELETE`)
+- `tabla_afectada` — tabla modificada
+- `id_registro` — PK del registro afectado
+- `valor_anterior` / `valor_nuevo` — snapshot JSON antes y después
+- `ip` / `user_agent` — trazabilidad de red
+- Hash SHA-256 de integridad embebido en `valor_nuevo`
+
+---
 
 ## Pruebas
 
-Ejecutar toda la suite:
-
 ```bash
+# Suite completa con cobertura
 npm test -- --runInBand
-```
 
-Ejecutar solo unitarias:
-
-```bash
+# Solo pruebas unitarias
 npm run test:unit
-```
 
-Ejecutar solo integracion:
-
-```bash
+# Solo pruebas de integración
 npm run test:integration
 ```
 
-Ultima verificacion realizada:
+Umbral de cobertura configurado: **≥ 80 %** en branches, functions, lines y statements.
+
+Última verificación:
 
 - 16 suites aprobadas
 - 97 pruebas aprobadas
-- Cobertura global sobre umbrales configurados
+- Cobertura global sobre los umbrales configurados
