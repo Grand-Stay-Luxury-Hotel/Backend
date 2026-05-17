@@ -24,6 +24,7 @@ Backend REST para el sistema de gestion hotelera Grand-Stay. Implementa las hist
 - Node.js 20 o superior
 - MySQL o MariaDB
 - Base de datos creada desde `grandstay_db.sql`
+- Datos de prueba compartidos en `database/seed-data.sql`
 
 ## Configuracion
 
@@ -51,7 +52,13 @@ PORT=4000
 NODE_ENV=development
 ```
 
-3. Ejecutar el servidor:
+3. Cargar los datos de prueba despues de crear el esquema:
+
+```bash
+mysql -u grandstay_user -p grandstay_db < database/seed-data.sql
+```
+
+4. Ejecutar el servidor:
 
 ```bash
 npm run dev
