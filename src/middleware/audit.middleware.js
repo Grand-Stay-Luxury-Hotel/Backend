@@ -35,14 +35,14 @@ export async function logAudit({
       INSERT INTO log_auditoria
         (id_usuario, tabla_afectada, accion, id_registro, datos_anteriores, datos_nuevos, ip_origen, user_agent)
       VALUES
-        (:userId, :tablaAfectada, :accion, :idRegistro, CAST(:valorAnterior AS JSON), CAST(:valorNuevo AS JSON), :ip, :userAgent)
+        (:userId, :tablaAfectada, :accion, :idRegistro, :valorAnterior, :valorNuevo, :ip, :userAgent)
     `;
     const params = {
       userId,
       tablaAfectada,
       accion,
       idRegistro,
-      valorAnterior: JSON.stringify(valorAnterior),
+      valorAnterior: valorAnterior === null ? null : JSON.stringify(valorAnterior),
       valorNuevo: JSON.stringify(datosNuevos),
       ip,
       userAgent,

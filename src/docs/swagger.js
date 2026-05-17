@@ -37,8 +37,8 @@ export const swaggerSpec = swaggerJSDoc({
           type: 'object',
           required: ['usuario', 'password'],
           properties: {
-            usuario: { type: 'string', format: 'email', example: 'admin@grandstay.com' },
-            password: { type: 'string', example: 'secreto' },
+            usuario: { type: 'string', format: 'email', example: 'recep1@grandstay.com' },
+            password: { type: 'string', example: 'Recep2024!' },
             otp: { type: 'string', example: '123456' },
           },
         },
@@ -55,9 +55,9 @@ export const swaggerSpec = swaggerJSDoc({
           required: ['id_huesped', 'id_habitacion', 'fecha_entrada', 'fecha_salida', 'token_pago', 'monto_anticipo'],
           properties: {
             id_huesped: { type: 'integer', example: 1 },
-            id_habitacion: { type: 'integer', example: 101 },
-            fecha_entrada: { type: 'string', format: 'date', example: '2026-06-01' },
-            fecha_salida: { type: 'string', format: 'date', example: '2026-06-05' },
+            id_habitacion: { type: 'integer', example: 1 },
+            fecha_entrada: { type: 'string', format: 'date', example: '2026-12-10' },
+            fecha_salida: { type: 'string', format: 'date', example: '2026-12-12' },
             token_pago: { type: 'string', example: 'tok_test_123' },
             monto_anticipo: { type: 'number', example: 250000 },
             observaciones: { type: 'string', example: 'Llegada tarde' },
@@ -79,7 +79,7 @@ export const swaggerSpec = swaggerJSDoc({
           type: 'object',
           required: ['habitacionId', 'tipo', 'descripcion', 'cantidad', 'precio_unitario'],
           properties: {
-            habitacionId: { type: 'integer', example: 101 },
+            habitacionId: { type: 'integer', example: 3 },
             tipo: { type: 'string', enum: ['restaurante', 'lavanderia', 'spa'], example: 'restaurante' },
             descripcion: { type: 'string', example: 'Cena habitacion' },
             cantidad: { type: 'number', example: 1 },
@@ -91,7 +91,7 @@ export const swaggerSpec = swaggerJSDoc({
           required: ['insumoId', 'habitacionId', 'cantidad'],
           properties: {
             insumoId: { type: 'integer', example: 1 },
-            habitacionId: { type: 'integer', example: 101 },
+            habitacionId: { type: 'integer', example: 1 },
             idPersonal: { type: 'integer', example: 1 },
             cantidad: { type: 'number', example: 2 },
             tipoTarea: { type: 'string', example: 'limpieza_rutina' },
@@ -179,9 +179,9 @@ export const swaggerSpec = swaggerJSDoc({
           summary: 'Consulta disponibilidad de habitaciones',
           security: bearerAuth,
           parameters: [
-            { name: 'fechaEntrada', in: 'query', schema: { type: 'string', format: 'date' }, example: '2026-06-01' },
-            { name: 'fechaSalida', in: 'query', schema: { type: 'string', format: 'date' }, example: '2026-06-05' },
-            { name: 'tipo', in: 'query', schema: { type: 'string' }, example: 'Deluxe' },
+            { name: 'fechaEntrada', in: 'query', schema: { type: 'string', format: 'date' }, example: '2026-12-10' },
+            { name: 'fechaSalida', in: 'query', schema: { type: 'string', format: 'date' }, example: '2026-12-12' },
+            { name: 'tipo', in: 'query', schema: { type: 'string' }, example: 'Estándar' },
             { name: 'capacidad', in: 'query', schema: { type: 'integer' }, example: 2 },
           ],
           responses: {
@@ -196,7 +196,7 @@ export const swaggerSpec = swaggerJSDoc({
           tags: ['Habitaciones'],
           summary: 'Actualiza el estado de una habitacion',
           security: bearerAuth,
-          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' }, example: 101 }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' }, example: 2 }],
           requestBody: {
             required: true,
             content: { 'application/json': { schema: { $ref: '#/components/schemas/EstadoHabitacionRequest' } } },
@@ -231,7 +231,7 @@ export const swaggerSpec = swaggerJSDoc({
           tags: ['Reservas'],
           summary: 'Cancela una reserva y calcula penalizacion',
           security: bearerAuth,
-          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' }, example: 1 }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' }, example: 2 }],
           responses: {
             200: { description: 'Reserva cancelada' },
             401: { $ref: '#/components/responses/Unauthorized' },
@@ -245,7 +245,7 @@ export const swaggerSpec = swaggerJSDoc({
           tags: ['Check-in'],
           summary: 'Registra el check-in de una reserva',
           security: bearerAuth,
-          parameters: [{ name: 'reservaId', in: 'path', required: true, schema: { type: 'integer' }, example: 1 }],
+          parameters: [{ name: 'reservaId', in: 'path', required: true, schema: { type: 'integer' }, example: 2 }],
           responses: {
             201: { description: 'Check-in registrado' },
             401: { $ref: '#/components/responses/Unauthorized' },
@@ -259,7 +259,7 @@ export const swaggerSpec = swaggerJSDoc({
           tags: ['Check-out'],
           summary: 'Registra el check-out y genera liquidacion',
           security: bearerAuth,
-          parameters: [{ name: 'reservaId', in: 'path', required: true, schema: { type: 'integer' }, example: 1 }],
+          parameters: [{ name: 'reservaId', in: 'path', required: true, schema: { type: 'integer' }, example: 2 }],
           responses: {
             200: { description: 'Check-out procesado' },
             401: { $ref: '#/components/responses/Unauthorized' },
@@ -339,7 +339,7 @@ export const swaggerSpec = swaggerJSDoc({
           security: bearerAuth,
           parameters: [
             { name: 'mes', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 12 }, example: 5 },
-            { name: 'anio', in: 'query', schema: { type: 'integer' }, example: 2026 },
+            { name: 'anio', in: 'query', schema: { type: 'integer' }, example: 2025 },
           ],
           responses: {
             200: { description: 'Reporte generado' },
@@ -355,7 +355,7 @@ export const swaggerSpec = swaggerJSDoc({
           security: bearerAuth,
           parameters: [
             { name: 'mes', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 12 }, example: 5 },
-            { name: 'anio', in: 'query', schema: { type: 'integer' }, example: 2026 },
+            { name: 'anio', in: 'query', schema: { type: 'integer' }, example: 2025 },
           ],
           responses: {
             200: { description: 'Reporte generado' },

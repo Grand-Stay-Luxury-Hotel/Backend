@@ -38,9 +38,16 @@ API REST del sistema de gestión hotelera **Grand Stay**. Implementa las histori
 
 ## Requisitos
 
+ codex-backend-seed-data
+- Node.js 20 o superior
+- MySQL o MariaDB
+- Base de datos creada desde `grandstay_db.sql`
+- Datos de prueba compartidos en `database/seed-data.sql`
+=======
 - **Node.js** 20 o superior
 - **MySQL** 8 o **MariaDB** 10.6+
 - Base de datos inicializada desde `grandstay_db.sql`
+ main
 
 ---
 
@@ -78,9 +85,19 @@ PAYMENT_GATEWAY_URL=https://api.pasarela-mock.com
 PAYMENT_GATEWAY_KEY=mock_key
 ```
 
+ codex-backend-seed-data
+3. Cargar los datos de prueba despues de crear el esquema:
+
+```bash
+mysql -u grandstay_user -p grandstay_db < database/seed-data.sql
+```
+
+4. Ejecutar el servidor:
+=======
 > **Advertencia de seguridad:** nunca uses los valores por defecto de `JWT_SECRET` ni `ADMIN_OTP` en producción.
 
 ### 3. Levantar el servidor
+ main
 
 ```bash
 # Desarrollo (con hot-reload nativo de Node 20)
