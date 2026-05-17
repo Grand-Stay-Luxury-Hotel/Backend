@@ -2,19 +2,63 @@ services:
   grandstay-backend:
     build:
       context: .
+      dockerfile: Dockerfile
     container_name: grandstay-backend
     restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: 4000
-      DB_HOST: ${DB_HOST:-host.docker.internal}
-      DB_PORT: ${DB_PORT:-3306}
-      DB_NAME: ${DB_NAME:-grandstay_db}
-      DB_USER: ${DB_USER:-root}
-      DB_PASSWORD: ${DB_PASSWORD:-}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: grandstay_db
+      DB_USER: grandstay_user
+      DB_PASSWORD: ${DB_PASSWORD:-GrandStay2025!}
       JWT_SECRET: ${JWT_SECRET:-clave_desarrollo_no_usar_en_produccion_123456789}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
       PAYMENT_GATEWAY_URL: ${PAYMENT_GATEWAY_URL:-https://api.pasarela-mock.com}
       PAYMENT_GATEWAY_KEY: ${PAYMENT_GATEWAY_KEY:-mock_key}
     ports:
       - "4000:4000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - grandstay-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  mysql:
+    image: mysql:8.0
+    container_name: grandstay-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
+      MYSQL_DATABASE: grandstay_db
+      MYSQL_USER: grandstay_user
+      MYSQL_PASSWORD: ${DB_PASSWORD:-GrandStay2025!}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./docker/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    networks:
+      - grandstay-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root_password}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  grandstay-net:
+    driver: bridge
