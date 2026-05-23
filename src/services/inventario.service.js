@@ -21,6 +21,18 @@ export function clasificarCriticidad(stock, umbral) {
   return 'normal';
 }
 
+export function crearAlertaStock({ insumo, stockResultante, habitacionId, criticidad }) {
+  return {
+    insumo_id: Number(insumo.id_insumo),
+    insumo: insumo.nombre,
+    habitacion_id: Number(habitacionId),
+    stock_actual: Number(stockResultante),
+    stock_minimo: Number(insumo.stock_minimo),
+    criticidad,
+    estado: 'pendiente',
+  };
+}
+
 /* istanbul ignore next */
 export async function registrarConsumoInventario(payload, contexto = {}) {
   const conn = await getConnection();
@@ -70,9 +82,20 @@ export async function registrarConsumoInventario(payload, contexto = {}) {
       },
     );
 
+    await conn.execute(
+      'UPDATE insumos_limpieza SET stock_actual = :stockActual WHERE id_insumo = :idInsumo',
+      { stockActual: stockResultante, idInsumo: payload.insumoId },
+    );
+
     let alerta = null;
     if (stockResultante <= Number(insumo.stock_minimo)) {
       const criticidad = clasificarCriticidad(stockResultante, insumo.stock_minimo);
+      const detalleAlerta = crearAlertaStock({
+        insumo,
+        stockResultante,
+        habitacionId: payload.habitacionId,
+        criticidad,
+      });
       const [resultadoAlerta] = await conn.execute(
         `
           INSERT INTO notificaciones
@@ -82,10 +105,10 @@ export async function registrarConsumoInventario(payload, contexto = {}) {
         `,
         {
           asunto: `Alerta de stock ${criticidad}`,
-          mensaje: `Stock bajo para ${insumo.nombre}`,
+          mensaje: JSON.stringify(detalleAlerta),
         },
       );
-      alerta = { id_notificacion: resultadoAlerta.insertId, criticidad };
+      alerta = { id_notificacion: resultadoAlerta.insertId, ...detalleAlerta };
     }
 
     await logAudit({
@@ -95,7 +118,12 @@ export async function registrarConsumoInventario(payload, contexto = {}) {
       tablaAfectada: 'insumos_limpieza',
       idRegistro: Number(payload.insumoId),
       valorAnterior: { stock_actual: Number(insumo.stock_actual) },
-      valorNuevo: { stock_actual: stockResultante, alerta_generada: Boolean(alerta) },
+      valorNuevo: {
+        stock_actual: stockResultante,
+        id_habitacion: Number(payload.habitacionId),
+        cantidad_consumida: Number(payload.cantidad),
+        alerta_generada: Boolean(alerta),
+      },
       ip: contexto.ip ?? null,
       userAgent: contexto.userAgent ?? null,
     });
@@ -115,23 +143,25 @@ export async function listarAlertasInventario() {
   const alertas = await query(
     `
       SELECT
-        id_insumo,
-        nombre,
-        categoria,
-        unidad_medida,
-        stock_actual,
-        stock_minimo,
-        faltante,
-        CASE
-          WHEN stock_actual <= stock_minimo / 2 THEN 'critica'
-          ELSE 'alta'
-        END AS criticidad
-      FROM v_stock_critico
+        id_notificacion,
+        destinatario,
+        asunto,
+        cuerpo,
+        estado,
+        JSON_UNQUOTE(JSON_EXTRACT(cuerpo, '$.insumo_id')) AS id_insumo,
+        JSON_UNQUOTE(JSON_EXTRACT(cuerpo, '$.insumo')) AS nombre,
+        JSON_UNQUOTE(JSON_EXTRACT(cuerpo, '$.habitacion_id')) AS id_habitacion,
+        JSON_UNQUOTE(JSON_EXTRACT(cuerpo, '$.stock_actual')) AS stock_actual,
+        JSON_UNQUOTE(JSON_EXTRACT(cuerpo, '$.stock_minimo')) AS stock_minimo,
+        JSON_UNQUOTE(JSON_EXTRACT(cuerpo, '$.criticidad')) AS criticidad
+      FROM notificaciones
+      WHERE evento = 'alerta_stock'
+        AND estado = 'pendiente'
       ORDER BY FIELD(
-        CASE WHEN stock_actual <= stock_minimo / 2 THEN 'critica' ELSE 'alta' END,
+        JSON_UNQUOTE(JSON_EXTRACT(cuerpo, '$.criticidad')),
         'critica',
         'alta'
-      ), faltante DESC
+      ), id_notificacion ASC
     `,
   );
   return { data: alertas, total: alertas.length };
@@ -142,18 +172,40 @@ export async function actualizarUmbralInventario(idInsumo, umbral, contexto = {}
   if (!Number.isFinite(Number(umbral)) || Number(umbral) < 0) {
     throw new ParametrosInvalidosError('El umbral debe ser un numero mayor o igual a cero');
   }
-  await query(
-    'UPDATE insumos_limpieza SET stock_minimo = :umbral WHERE id_insumo = :idInsumo',
-    { umbral: Number(umbral), idInsumo },
-  );
-  await logAudit({
-    userId: contexto.userId ?? null,
-    accion: 'UPDATE',
-    tablaAfectada: 'insumos_limpieza',
-    idRegistro: Number(idInsumo),
-    valorNuevo: { stock_minimo: Number(umbral) },
-    ip: contexto.ip ?? null,
-    userAgent: contexto.userAgent ?? null,
-  });
-  return { id_insumo: Number(idInsumo), stock_minimo: Number(umbral), mensaje: 'Umbral actualizado' };
+  const conn = await getConnection();
+  try {
+    await conn.beginTransaction();
+    const [[insumo]] = await conn.execute(
+      'SELECT id_insumo, stock_minimo FROM insumos_limpieza WHERE id_insumo = :idInsumo FOR UPDATE',
+      { idInsumo },
+    );
+
+    if (!insumo) {
+      throw new RecursoNoEncontradoError('El insumo solicitado no existe');
+    }
+
+    await conn.execute(
+      'UPDATE insumos_limpieza SET stock_minimo = :umbral WHERE id_insumo = :idInsumo',
+      { umbral: Number(umbral), idInsumo },
+    );
+    await logAudit({
+      conn,
+      userId: contexto.userId ?? null,
+      accion: 'UPDATE',
+      tablaAfectada: 'insumos_limpieza',
+      idRegistro: Number(idInsumo),
+      valorAnterior: { stock_minimo: Number(insumo.stock_minimo) },
+      valorNuevo: { stock_minimo: Number(umbral) },
+      ip: contexto.ip ?? null,
+      userAgent: contexto.userAgent ?? null,
+    });
+
+    await conn.commit();
+    return { id_insumo: Number(idInsumo), stock_minimo: Number(umbral), mensaje: 'Umbral actualizado' };
+  } catch (error) {
+    await conn.rollback();
+    throw error;
+  } finally {
+    conn.release();
+  }
 }

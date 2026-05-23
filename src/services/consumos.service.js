@@ -5,6 +5,14 @@ import { logAudit } from '../middleware/audit.middleware.js';
 
 const TIPOS_CONSUMO = new Set(['restaurante', 'lavanderia', 'spa']);
 
+function normalizarTexto(valor) {
+  return String(valor ?? '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 export function calcularTotalConsumo({ cantidad, precio_unitario: precioUnitario }) {
   const unidades = Number(cantidad);
   const precio = Number(precioUnitario);
@@ -15,7 +23,7 @@ export function calcularTotalConsumo({ cantidad, precio_unitario: precioUnitario
 }
 
 export function validarTipoConsumo(tipo) {
-  const normalizado = typeof tipo === 'string' ? tipo.trim().toLowerCase() : '';
+  const normalizado = normalizarTexto(tipo);
   if (!TIPOS_CONSUMO.has(normalizado)) {
     throw new ParametrosInvalidosError('Tipo de consumo invalido');
   }
@@ -35,11 +43,15 @@ export async function registrarConsumo(payload, contexto = {}) {
     await conn.beginTransaction();
     const [[ocupacion]] = await conn.execute(
       `
-        SELECT h.id_habitacion, h.estado, r.id_reserva
+        SELECT h.id_habitacion, h.estado, r.id_reserva, ci.id_checkin, co.id_checkout
         FROM habitaciones h
         LEFT JOIN reservas r
           ON r.id_habitacion = h.id_habitacion
           AND r.estado = 'confirmada'
+        LEFT JOIN checkin ci
+          ON ci.id_reserva = r.id_reserva
+        LEFT JOIN checkout co
+          ON co.id_checkin = ci.id_checkin
         WHERE h.id_habitacion = :habitacionId
         FOR UPDATE
       `,
@@ -50,7 +62,7 @@ export async function registrarConsumo(payload, contexto = {}) {
       throw new RecursoNoEncontradoError('La habitacion solicitada no existe');
     }
 
-    if (ocupacion.estado !== 'ocupada' || !ocupacion.id_reserva) {
+    if (ocupacion.estado !== 'ocupada' || !ocupacion.id_reserva || !ocupacion.id_checkin || ocupacion.id_checkout) {
       throw new EntidadNoProcesableError('Solo se pueden registrar consumos en habitaciones ocupadas');
     }
 
@@ -104,7 +116,13 @@ export async function registrarConsumo(payload, contexto = {}) {
       accion: 'INSERT',
       tablaAfectada: 'consumo_servicios',
       idRegistro: resultado.insertId,
-      valorNuevo: { accion_negocio: 'CONSUMO_ADICIONAL', total },
+      valorNuevo: {
+        accion_negocio: 'CONSUMO_ADICIONAL',
+        id_reserva: ocupacion.id_reserva,
+        id_habitacion: Number(payload.habitacionId),
+        tipo,
+        total,
+      },
       ip: contexto.ip ?? null,
       userAgent: contexto.userAgent ?? null,
     });
@@ -115,6 +133,11 @@ export async function registrarConsumo(payload, contexto = {}) {
       id_reserva: ocupacion.id_reserva,
       total_consumo: total,
       total_acumulado: Number(acumulado.total_consumos),
+      cuenta_habitacion: {
+        id_habitacion: Number(payload.habitacionId),
+        id_reserva: ocupacion.id_reserva,
+        total_consumos: Number(acumulado.total_consumos),
+      },
       mensaje: 'Consumo registrado exitosamente',
     };
   } catch (error) {
