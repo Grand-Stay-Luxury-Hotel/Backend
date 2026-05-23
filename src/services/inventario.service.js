@@ -139,7 +139,13 @@ export async function registrarConsumoInventario(payload, contexto = {}) {
 }
 
 /* istanbul ignore next */
-export async function listarAlertasInventario() {
+export async function listarAlertasInventario({ pagina = 1, limite = 50 } = {}) {
+  const offset = (Math.max(pagina, 1) - 1) * Math.min(Math.max(limite, 1), 100);
+
+  const [[{ total }]] = await query(
+    `SELECT COUNT(*) AS total FROM notificaciones WHERE evento = 'alerta_stock' AND estado = 'pendiente'`,
+  );
+
   const alertas = await query(
     `
       SELECT
@@ -162,9 +168,11 @@ export async function listarAlertasInventario() {
         'critica',
         'alta'
       ), id_notificacion ASC
+      LIMIT :limite OFFSET :offset
     `,
+    { limite, offset },
   );
-  return { data: alertas, total: alertas.length };
+  return { data: alertas, total, pagina, limite };
 }
 
 /* istanbul ignore next */

@@ -22,9 +22,17 @@ const TRANSICIONES_VALIDAS = new Map([
 ]);
 
 const ROLES_LIMPIEZA = new Set(['personallimpieza', 'limpieza']);
+const ROLES_RECEPCION = new Set(['recepcionista']);
+const ROLES_ADMIN = new Set(['administrador', 'admin']);
 
 function normalizarRol(rol) {
-  return String(rol ?? '').replace(/\s+/g, '').toLowerCase();
+  const llave = String(rol ?? '').replace(/\s+/g, '').toLowerCase();
+  const alias = new Map([
+    ['personaldelimpieza', 'personallimpieza'],
+    ['limpieza', 'personallimpieza'],
+    ['admin', 'administrador'],
+  ]);
+  return alias.get(llave) ?? llave;
 }
 
 export function normalizarEstado(estado) {
@@ -46,12 +54,14 @@ export function validarTransicionHabitacion(estadoActual, estadoNuevo, rol) {
   }
 
   if ((actual === 'sucia' && nuevo === 'limpieza') || (actual === 'limpieza' && nuevo === 'disponible')) {
-    if (!ROLES_LIMPIEZA.has(normalizarRol(rol)) && rol !== 'Administrador') {
+    const rolNormalizado = normalizarRol(rol);
+    if (!ROLES_LIMPIEZA.has(rolNormalizado) && !ROLES_ADMIN.has(rolNormalizado)) {
       throw new AccesoDenegadoError('Solo personal de limpieza puede ejecutar esta transicion');
     }
   }
 
-  if ((nuevo === 'mantenimiento' || nuevo === 'bloqueada') && rol !== 'Recepcionista' && rol !== 'Administrador') {
+  const rolNormalizado = normalizarRol(rol);
+  if ((nuevo === 'mantenimiento' || nuevo === 'bloqueada') && !ROLES_RECEPCION.has(rolNormalizado) && !ROLES_ADMIN.has(rolNormalizado)) {
     throw new AccesoDenegadoError('Solo recepcion puede marcar habitaciones en mantenimiento');
   }
 

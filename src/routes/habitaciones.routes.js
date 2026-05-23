@@ -7,6 +7,6 @@ import { authorizeRoles, verifyToken } from '../middleware/auth.middleware.js';
 const router = Router();
 
 router.get('/disponibilidad', verifyToken, authorizeRoles('Recepcionista', 'Huesped'), obtenerDisponibilidad);
-router.patch('/:id/estado', verifyToken, authorizeRoles('PersonalLimpieza', 'Personal de Limpieza', 'Limpieza', 'Recepcionista', 'Administrador'), patchEstadoHabitacion);
+router.patch('/:id/estado', verifyToken, authorizeRoles('PersonalLimpieza', 'Recepcionista', 'Administrador'), patchEstadoHabitacion);
 
 export default router;

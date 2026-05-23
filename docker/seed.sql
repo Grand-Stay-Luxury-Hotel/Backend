@@ -55,10 +55,10 @@ INSERT INTO habitaciones (id_tipo, numero, piso, estado, activo) VALUES
 
 -- Tarifas
 INSERT INTO tarifas (id_tipo, precio_noche, fecha_inicio, fecha_fin, activa) VALUES
-    (1, 80.00, '2025-01-01', '2025-12-31', TRUE),
-    (2, 120.00, '2025-01-01', '2025-12-31', TRUE),
-    (3, 250.00, '2025-01-01', '2025-12-31', TRUE),
-    (4, 180.00, '2025-01-01', '2025-12-31', TRUE);
+    (1, 80.00, '2025-01-01', '2026-12-31', TRUE),
+    (2, 120.00, '2025-01-01', '2026-12-31', TRUE),
+    (3, 250.00, '2025-01-01', '2026-12-31', TRUE),
+    (4, 180.00, '2025-01-01', '2026-12-31', TRUE);
 
 -- Servicios Adicionales
 INSERT INTO servicios_adicionales (nombre, categoria, precio, activo, disponible) VALUES

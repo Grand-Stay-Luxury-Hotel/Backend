@@ -10,13 +10,14 @@ export async function verifyToken(req, _res, next) {
     }
 
     const token = header.replace('Bearer ', '').trim();
-    const payload = jwt.verify(token, process.env.JWT_SECRET ?? 'clave_desarrollo_no_usar_en_produccion');
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
     req.user = {
       id: payload.id ?? payload.id_usuario,
       id_usuario: payload.id_usuario ?? payload.id,
       id_recepcionista: payload.id_recepcionista ?? null,
       id_personal: payload.id_personal ?? null,
       id_admin: payload.id_admin ?? null,
+      id_huesped: payload.id_huesped ?? null,
       rol: payload.rol,
       email: payload.email,
     };
@@ -33,7 +34,24 @@ export function authorizeRoles(...rolesPermitidos) {
         throw new NoAutorizadoError();
       }
 
-      const normalizarRol = (rol) => String(rol ?? '').replace(/\s+/g, '').toLowerCase();
+      const aliasRoles = new Map([
+        ['administrador', 'administrador'],
+        ['admin', 'administrador'],
+        ['recepcionista', 'recepcionista'],
+        ['huesped', 'huesped'],
+        ['huésped', 'huesped'],
+        ['personallimpieza', 'personallimpieza'],
+        ['personaldelimpieza', 'personallimpieza'],
+        ['limpieza', 'personallimpieza'],
+        ['serviciotecnico', 'serviciotecnico'],
+        ['serviciotécnico', 'serviciotecnico'],
+        ['serviciodetecnico', 'serviciotecnico'],
+        ['serviciodetécnico', 'serviciotecnico'],
+      ]);
+      const normalizarRol = (rol) => {
+        const llave = String(rol ?? '').replace(/\s+/g, '').toLowerCase();
+        return aliasRoles.get(llave) ?? llave;
+      };
       const rolUsuario = normalizarRol(req.user.rol);
       const permitido = rolesPermitidos.some((rol) => normalizarRol(rol) === rolUsuario);
 

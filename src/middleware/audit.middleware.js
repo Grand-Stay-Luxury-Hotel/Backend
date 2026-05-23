@@ -40,7 +40,7 @@ export async function logAudit({
 
   const sql = `
     INSERT INTO log_auditoria
-      (id_usuario, tabla_afectada, accion, id_registro, datos_anteriores, datos_nuevos, ip_origen, user_agent)
+      (id_usuario, tabla_afectada, accion, id_registro, valor_anterior, valor_nuevo, ip, user_agent)
     VALUES
       (:userId, :tablaAfectada, :accion, :idRegistro, :valorAnterior, :valorNuevo, :ip, :userAgent)
   `;

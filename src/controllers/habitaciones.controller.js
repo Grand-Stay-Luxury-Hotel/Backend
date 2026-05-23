@@ -1,5 +1,6 @@
 // src/controllers/habitaciones.controller.js
 import { cambiarEstadoHabitacion } from '../services/habitaciones.service.js';
+import { ParametrosInvalidosError } from '../utils/errors.js';
 
 function crearContexto(req) {
   return {
@@ -11,9 +12,15 @@ function crearContexto(req) {
   };
 }
 
+const ESTADOS_VALIDOS = ['disponible', 'ocupada', 'mantenimiento', 'limpieza'];
+
 export async function patchEstadoHabitacion(req, res, next) {
   try {
-    const resultado = await cambiarEstadoHabitacion(req.params.id, req.body.estado, crearContexto(req));
+    const estado = req.body?.estado;
+    if (!estado || !ESTADOS_VALIDOS.includes(estado)) {
+      throw new ParametrosInvalidosError(`Estado inválido. Válidos: ${ESTADOS_VALIDOS.join(', ')}`);
+    }
+    const resultado = await cambiarEstadoHabitacion(req.params.id, estado, crearContexto(req));
     res.status(200).json(resultado);
   } catch (error) {
     next(error);
