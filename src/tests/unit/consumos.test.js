@@ -9,6 +9,10 @@ describe('HU-B08 consumos.service', () => {
     expect(validarTipoConsumo(' Restaurante ')).toBe('restaurante');
   });
 
+  test('normaliza tipo de consumo con tilde', () => {
+    expect(validarTipoConsumo('Lavandería')).toBe('lavanderia');
+  });
+
   test('rechaza cantidades invalidas', () => {
     let errorLanzado;
     try {
