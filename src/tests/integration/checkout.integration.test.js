@@ -17,13 +17,13 @@ function token(rol) {
   return jwt.sign({ id_usuario: 1, rol, id_recepcionista: 1 }, secreto);
 }
 
-describe('Integración HU-B06 check-out', () => {
+describe('Integracion HU-B06 check-out', () => {
   beforeEach(() => {
     process.env.JWT_SECRET = secreto;
     registrarCheckout.mockReset();
   });
 
-  test('POST /checkout/:reservaId válido retorna 200 + resumen_factura', () => {
+  test('POST /checkout/:reservaId valido retorna 200 + resumen_factura', () => {
     registrarCheckout.mockResolvedValue({ id_checkout: 8, resumen_factura: { total: 1000 }, mensaje: 'Check-out procesado exitosamente' });
     return request(app).post('/checkout/42').set('Authorization', `Bearer ${token('Recepcionista')}`).send({}).expect(200);
   });
@@ -40,13 +40,21 @@ describe('Integración HU-B06 check-out', () => {
 
   test('POST /checkout/:reservaId sin auth retorna 401', () => request(app).post('/checkout/42').send({}).expect(401));
 
-  test('Habitación queda en estado limpieza tras checkout exitoso', () => {
-    registrarCheckout.mockResolvedValue({ id_checkout: 8, resumen_factura: {}, estado_habitacion: 'limpieza' });
+  test('habitacion queda en estado sucia tras checkout exitoso', () => {
+    registrarCheckout.mockResolvedValue({
+      id_checkout: 8,
+      resumen_factura: {},
+      estado_habitacion: 'sucia',
+      notificacion_encolada: true,
+    });
     return request(app)
       .post('/checkout/42')
       .set('Authorization', `Bearer ${token('Recepcionista')}`)
       .send({})
       .expect(200)
-      .expect((res) => expect(res.body.estado_habitacion).toBe('limpieza'));
+      .expect((res) => {
+        expect(res.body.estado_habitacion).toBe('sucia');
+        expect(res.body.notificacion_encolada).toBe(true);
+      });
   });
 });

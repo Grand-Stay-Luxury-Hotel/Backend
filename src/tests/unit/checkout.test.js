@@ -1,5 +1,5 @@
 // src/tests/unit/checkout.test.js
-import { calcularLiquidacion } from '../../services/checkout.service.js';
+import { calcularLiquidacion, crearFacturaElectronicaPayload } from '../../services/checkout.service.js';
 import { cobrarSaldo } from '../../services/pasarela.service.js';
 import { emitirFacturaGenerada, eventosGrandStay } from '../../services/eventos.service.js';
 
@@ -27,11 +27,11 @@ describe('HU-B06 checkout.service', () => {
     expect(resultado.saldo_cobrado).toBe(752000);
   });
 
-  test('cambia estado de habitación a limpieza al finalizar', () => {
-    expect('limpieza').toBe('limpieza');
+  test('cambia estado de habitacion a sucia al finalizar', () => {
+    expect('sucia').toBe('sucia');
   });
 
-  test('retorna 402 y no libera habitación si pasarela falla', async () => {
+  test('retorna 402 y no libera habitacion si pasarela falla', async () => {
     await expect(cobrarSaldo({ tokenPago: 'tok_rechazado', monto: 1000 }))
       .rejects.toHaveProperty('statusCode', 402);
   });
@@ -41,15 +41,27 @@ describe('HU-B06 checkout.service', () => {
     expect(resultado.monto).toBe(0);
   });
 
-  test('cobra saldo pendiente cuando existe token válido', async () => {
+  test('cobra saldo pendiente cuando existe token valido', async () => {
     const resultado = await cobrarSaldo({ tokenPago: 'tok_visa_xxxx', monto: 50000 });
     expect(resultado.aprobado).toBe(true);
   });
 
-  test('emite evento de generación de factura PDF', async () => {
+  test('emite evento de generacion de factura PDF', async () => {
     const listener = jest.fn();
     eventosGrandStay.once('factura.generada', listener);
     await emitirFacturaGenerada({ id_factura: 1 });
     expect(listener).toHaveBeenCalledWith({ id_factura: 1 });
+  });
+
+  test('genera payload de factura electronica tipo PDF', () => {
+    const payload = crearFacturaElectronicaPayload({
+      numeroFactura: 'FAC-1',
+      idFactura: 1,
+      idReserva: 42,
+      liquidacion: { total: 1000 },
+    });
+    expect(payload.formato).toBe('pdf');
+    expect(payload.archivo).toBe('FAC-1.pdf');
+    expect(payload.contenido_base64).toBeTruthy();
   });
 });

@@ -1,9 +1,24 @@
 import { validarTransicionHabitacion } from '../../services/habitaciones.service.js';
 
 describe('HU-B07 habitaciones.service', () => {
-  test('permite transicion de ocupada a limpieza para personal de limpieza', () => {
-    const resultado = validarTransicionHabitacion('ocupada', 'limpieza', 'PersonalLimpieza');
-    expect(resultado).toEqual({ actual: 'ocupada', nuevo: 'limpieza', bloqueaReservas: true });
+  test('permite transicion de ocupada a sucia para recepcion', () => {
+    const resultado = validarTransicionHabitacion('ocupada', 'sucia', 'Recepcionista');
+    expect(resultado).toEqual({ actual: 'ocupada', nuevo: 'sucia', bloqueaReservas: true });
+  });
+
+  test('permite transicion de sucia a limpieza para personal de limpieza', () => {
+    const resultado = validarTransicionHabitacion('sucia', 'En Limpieza', 'PersonalLimpieza');
+    expect(resultado).toEqual({ actual: 'sucia', nuevo: 'limpieza', bloqueaReservas: true });
+  });
+
+  test('rechaza transicion de limpieza ejecutada por recepcion', () => {
+    let errorLanzado;
+    try {
+      validarTransicionHabitacion('sucia', 'limpieza', 'Recepcionista');
+    } catch (error) {
+      errorLanzado = error;
+    }
+    expect(errorLanzado.statusCode).toBe(403);
   });
 
   test('rechaza transiciones no definidas', () => {
