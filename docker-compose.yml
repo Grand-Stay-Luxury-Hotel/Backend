@@ -12,8 +12,8 @@ services:
       DB_PORT: 3306
       DB_NAME: grandstay_db
       DB_USER: grandstay_user
-      DB_PASSWORD: ${DB_PASSWORD:-GrandStay2025!}
-      JWT_SECRET: ${JWT_SECRET:-clave_desarrollo_no_usar_en_produccion_123456789}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
       PAYMENT_GATEWAY_URL: ${PAYMENT_GATEWAY_URL:-https://api.pasarela-mock.com}
       PAYMENT_GATEWAY_KEY: ${PAYMENT_GATEWAY_KEY:-mock_key}
@@ -36,10 +36,10 @@ services:
     container_name: grandstay-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: grandstay_db
       MYSQL_USER: grandstay_user
-      MYSQL_PASSWORD: ${DB_PASSWORD:-GrandStay2025!}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
     ports:
       - "3306:3306"
     volumes:
@@ -49,7 +49,7 @@ services:
     networks:
       - grandstay-net
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root_password}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 5

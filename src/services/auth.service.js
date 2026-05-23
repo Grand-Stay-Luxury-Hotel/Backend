@@ -99,11 +99,10 @@ export function verificarPassword(password, passwordHash) {
 
 export function validarOtpAdministrador(usuario, otp) {
   if (usuario.rol !== 'Administrador') return true;
-  const totpSecret = usuario.otp_secret ?? process.env.ADMIN_OTP_SECRET;
   const otpEstatico = process.env.ADMIN_OTP;
-  const otpValido = totpSecret
-    ? validarTotp(totpSecret, otp)
-    : Boolean(otpEstatico && otp === otpEstatico);
+  const otpConfigurado = usuario.otp_actual || otpEstatico;
+  const otpValido = Boolean(otpConfigurado && otp === otpConfigurado)
+    || validarTotp(process.env.ADMIN_OTP_SECRET, otp);
 
   if (!otpValido) {
     throw new AccesoDenegadoError('Codigo OTP requerido para Administrador');
@@ -128,6 +127,7 @@ export async function login({ usuario, password, otp }) {
         rec.id_recepcionista,
         lim.id_personal,
         adm.id_admin,
+        adm.otp_actual,
         hue.id_huesped
       FROM usuarios u
       JOIN roles r ON r.id_rol = u.id_rol
@@ -161,7 +161,7 @@ export async function login({ usuario, password, otp }) {
       id_admin: encontrado.id_admin ?? null,
       id_huesped: encontrado.id_huesped ?? null,
     },
-    process.env.JWT_SECRET ?? 'clave_desarrollo_no_usar_en_produccion',
+    process.env.JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN },
   );
 
@@ -254,7 +254,7 @@ export async function registro({ nombre, apellido, email, password, telefono, nu
         id_admin: null,
         id_huesped,
       },
-      process.env.JWT_SECRET ?? 'clave_desarrollo_no_usar_en_produccion',
+      process.env.JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN },
     );
 

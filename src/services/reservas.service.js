@@ -1,6 +1,6 @@
 // src/services/reservas.service.js
 import { getConnection } from '../utils/db.js';
-import { ParametrosInvalidosError, ReservaNoEncontradaError, ReservaEstadoInvalidoError } from '../utils/errors.js';
+import { AccesoDenegadoError, ParametrosInvalidosError, ReservaNoEncontradaError, ReservaEstadoInvalidoError } from '../utils/errors.js';
 import { verificarDisponibilidad } from './overbooking.service.js';
 import { autorizarPago, reembolsarPago } from './pasarela.service.js';
 import { logAudit } from '../middleware/audit.middleware.js';
@@ -45,8 +45,25 @@ export function calcularPenalizacion(fechaEntrada, montoPagado, fechaActual = ne
 export async function crearReserva(payload, contexto = {}) {
   const conn = await getConnection();
   try {
+    if (contexto.rol === 'Huesped') {
+      payload.id_huesped = contexto.idHuesped;
+    }
+
+    if (!payload.token_pago) {
+      payload.token_pago = `tok_mock_${Date.now()}`;
+    }
+
     validarReserva(payload);
+
     await conn.beginTransaction();
+
+    const [[huesped]] = await conn.execute(
+      'SELECT id_huesped FROM huespedes WHERE id_huesped = :idHuesped LIMIT 1 FOR UPDATE',
+      { idHuesped: payload.id_huesped },
+    );
+    if (!huesped) {
+      throw new ParametrosInvalidosError('El huésped seleccionado no existe');
+    }
 
     const [[habitacion]] = await conn.execute(
       `

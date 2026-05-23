@@ -20,9 +20,12 @@ export async function postConsumoInventario(req, res, next) {
   }
 }
 
-export async function getAlertasInventario(_req, res, next) {
+export async function getAlertasInventario(req, res, next) {
   try {
-    const resultado = await listarAlertasInventario();
+    const resultado = await listarAlertasInventario({
+      pagina: Number(req.query.pagina) || 1,
+      limite: Number(req.query.limite) || 50,
+    });
     res.status(200).json(resultado);
   } catch (error) {
     next(error);

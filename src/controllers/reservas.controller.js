@@ -5,6 +5,7 @@ function crearContexto(req) {
   return {
     userId: req.user?.id_usuario,
     idRecepcionista: req.user?.id_recepcionista,
+    idHuesped: req.user?.id_huesped,
     rol: req.user?.rol,
     ip: req.ip,
     userAgent: req.headers['user-agent'],

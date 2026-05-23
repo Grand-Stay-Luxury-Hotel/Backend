@@ -1,11 +1,12 @@
 // src/services/checkin.service.js
+import crypto from 'crypto';
 import { getConnection } from '../utils/db.js';
 import { ReservaEstadoInvalidoError, ReservaNoEncontradaError } from '../utils/errors.js';
 import { logAudit } from '../middleware/audit.middleware.js';
 import { emitirCodigoAcceso } from './eventos.service.js';
 
 function generarCodigoAcceso() {
-  return `GS-${Math.floor(1000 + Math.random() * 9000)}`;
+  return `GS-${crypto.randomInt(1000, 9999)}`;
 }
 
 export async function registrarCheckin(idReserva, contexto = {}) {

@@ -18,15 +18,24 @@ import { errorResponse } from './utils/errors.js';
 export function createApp() {
   const app = express();
 
+  app.set('trust proxy', 1);
+
   app.get('/api-docs.json', (_req, res) => {
     res.status(200).json(swaggerSpec);
   });
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-  app.use(helmet());
+  app.use(helmet.contentSecurityPolicy({
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:"],
+    },
+  }));
   app.use(cors());
   app.use(express.json());
-  app.use(morgan('dev'));
+  app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
   app.get('/health', async (_req, res, next) => {
     try {

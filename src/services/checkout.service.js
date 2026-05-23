@@ -52,14 +52,13 @@ async function encolarEnvioFactura(conn, { reserva, numeroFactura, facturaElectr
   const [resultado] = await conn.execute(
     `
       INSERT INTO notificaciones
-        (id_reserva, id_huesped, tipo, evento, destinatario, asunto, cuerpo, estado)
+        (id_usuario_dest, tipo, evento, destinatario, asunto, cuerpo, estado)
       VALUES
-        (:idReserva, :idHuesped, 'email', 'factura_checkout',
+        (:idUsuarioDest, 'email', 'factura_checkout',
          :destinatario, :asunto, :cuerpo, 'pendiente')
     `,
     {
-      idReserva: reserva.id_reserva,
-      idHuesped: reserva.id_huesped,
+      idUsuarioDest: reserva.id_usuario_huesped,
       destinatario: reserva.email_huesped,
       asunto: `Factura electronica ${numeroFactura}`,
       cuerpo: JSON.stringify({
@@ -80,7 +79,7 @@ export async function registrarCheckout(idReserva, contexto = {}) {
 
     const [[reserva]] = await conn.execute(
       `
-        SELECT r.*, ci.id_checkin, tp.token, h.email AS email_huesped
+        SELECT r.*, ci.id_checkin, tp.token, h.email AS email_huesped, h.id_usuario AS id_usuario_huesped
         FROM reservas r
         JOIN checkin ci ON ci.id_reserva = r.id_reserva
         JOIN huespedes h ON h.id_huesped = r.id_huesped

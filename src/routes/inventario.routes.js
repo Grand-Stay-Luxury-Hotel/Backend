@@ -5,7 +5,7 @@ import { authorizeRoles, verifyToken } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
-router.post('/consumo', verifyToken, authorizeRoles('Administrador', 'PersonalLimpieza', 'Personal de Limpieza', 'Limpieza'), postConsumoInventario);
+router.post('/consumo', verifyToken, authorizeRoles('Administrador', 'PersonalLimpieza'), postConsumoInventario);
 router.get('/alertas', verifyToken, authorizeRoles('Administrador'), getAlertasInventario);
 router.patch('/:id/umbral', verifyToken, authorizeRoles('Administrador'), patchUmbralInventario);
 
