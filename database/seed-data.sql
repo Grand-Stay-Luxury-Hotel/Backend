@@ -15,8 +15,7 @@
 --  huesped1@grandstay.com           | Hues2024!   | Huesped
 --  huesped2@grandstay.com           | Hues2024!   | Huesped
 --
---  password_hash = SHA2('contraseña', 256)  (solo para pruebas)
---  En produccion usar bcrypt o Argon2
+--  password_hash = bcrypt coste 12
 -- =============================================================
 
 USE grandstay_db;
@@ -28,13 +27,13 @@ SET FOREIGN_KEY_CHECKS = 0;
 INSERT INTO usuarios
   (id_usuario, id_rol, nombre, apellido, email, password_hash, activo, ultimo_acceso)
 VALUES
-  (1, 1, 'Carlos',  'Mendoza',  'admin@grandstay.com',     SHA2('Admin2024!', 256), TRUE, NOW()),
-  (2, 2, 'Laura',   'Gomez',    'recep1@grandstay.com',    SHA2('Recep2024!', 256), TRUE, NOW()),
-  (3, 2, 'Andres',  'Rios',     'recep2@grandstay.com',    SHA2('Recep2024!', 256), TRUE, NOW()),
-  (4, 3, 'Maria',   'Castillo', 'limpieza1@grandstay.com', SHA2('Limp2024!',  256), TRUE, NULL),
-  (5, 4, 'Jorge',   'Herrera',  'tecnico1@grandstay.com',  SHA2('Tec2024!',   256), TRUE, NULL),
-  (6, 5, 'Sofia',   'Torres',   'huesped1@grandstay.com',  SHA2('Hues2024!',  256), TRUE, NULL),
-  (7, 5, 'Mateo',   'Vargas',   'huesped2@grandstay.com',  SHA2('Hues2024!',  256), TRUE, NULL);
+  (1, 1, 'Carlos',  'Mendoza',  'admin@grandstay.com',     '$2a$12$0i6Vdq4KxddBPRPuTApfjOe8e7Rh5nVHjOaBFYlSE3dskQiTvXn.m', TRUE, NOW()),
+  (2, 2, 'Laura',   'Gomez',    'recep1@grandstay.com',    '$2a$12$eF67Vfs7I/8DlMorTcgqd.LBwmRbgWtMXnmCCeFwHI/RFVWMS9eji', TRUE, NOW()),
+  (3, 2, 'Andres',  'Rios',     'recep2@grandstay.com',    '$2a$12$eF67Vfs7I/8DlMorTcgqd.LBwmRbgWtMXnmCCeFwHI/RFVWMS9eji', TRUE, NOW()),
+  (4, 3, 'Maria',   'Castillo', 'limpieza1@grandstay.com', '$2a$12$oiDY4aFhDrz0w2hh5KgmLOiclOtF8AP9RQ8c/N0WXtGSc.5PN4K22', TRUE, NULL),
+  (5, 4, 'Jorge',   'Herrera',  'tecnico1@grandstay.com',  '$2a$12$nQpphqjhx84qF/9ZtLxVmuPy341Bg2cPpWJ5NwRcTGv2eoCmClMTK', TRUE, NULL),
+  (6, 5, 'Sofia',   'Torres',   'huesped1@grandstay.com',  '$2a$12$oXOytoHA/3RwzEfm2yPBU.A1beq3yEva0VnOJlVh/QvIyJptCEYui', TRUE, NULL),
+  (7, 5, 'Mateo',   'Vargas',   'huesped2@grandstay.com',  '$2a$12$oXOytoHA/3RwzEfm2yPBU.A1beq3yEva0VnOJlVh/QvIyJptCEYui', TRUE, NULL);
 
 -- =============================================================
 -- 2. ESPECIALIZACIONES DE USUARIO

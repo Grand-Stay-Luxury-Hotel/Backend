@@ -14,6 +14,16 @@ export function validarRegistroAuditoria({ accion, tablaAfectada }) {
   return true;
 }
 
+export function obtenerPoliticaAuditoria() {
+  return {
+    tabla: 'log_auditoria',
+    modo: 'solo_insercion',
+    operaciones_bloqueadas: ['UPDATE', 'DELETE'],
+    repositorio_integridad: 'log_auditoria_hash_chain',
+    algoritmo_hash: 'SHA-256',
+  };
+}
+
 /* istanbul ignore next */
 export async function registrarOperacionCritica(registro) {
   validarRegistroAuditoria(registro);

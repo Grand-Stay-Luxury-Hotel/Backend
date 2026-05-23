@@ -4,6 +4,7 @@ import { ReservaEstadoInvalidoError, ReservaNoEncontradaError } from '../utils/e
 import { cobrarSaldo } from './pasarela.service.js';
 import { emitirFacturaGenerada } from './eventos.service.js';
 import { logAudit } from '../middleware/audit.middleware.js';
+import { cambiarEstadoHabitacionEnTransaccion } from './habitaciones.service.js';
 
 export function diffDias(fechaEntrada, fechaSalida) {
   const entrada = new Date(`${fechaEntrada}T00:00:00Z`);
@@ -32,6 +33,45 @@ export function calcularLiquidacion({ reserva, tarifa, consumos }) {
   };
 }
 
+export function crearFacturaElectronicaPayload({ numeroFactura, idFactura, idReserva, liquidacion }) {
+  return {
+    numero_factura: numeroFactura,
+    id_factura: idFactura,
+    id_reserva: Number(idReserva),
+    formato: 'pdf',
+    archivo: `${numeroFactura}.pdf`,
+    contenido_base64: Buffer.from(JSON.stringify({
+      numero_factura: numeroFactura,
+      resumen: liquidacion,
+    })).toString('base64'),
+  };
+}
+
+/* istanbul ignore next */
+async function encolarEnvioFactura(conn, { reserva, numeroFactura, facturaElectronica }) {
+  const [resultado] = await conn.execute(
+    `
+      INSERT INTO notificaciones
+        (id_reserva, id_huesped, tipo, evento, destinatario, asunto, cuerpo, estado)
+      VALUES
+        (:idReserva, :idHuesped, 'email', 'factura_checkout',
+         :destinatario, :asunto, :cuerpo, 'pendiente')
+    `,
+    {
+      idReserva: reserva.id_reserva,
+      idHuesped: reserva.id_huesped,
+      destinatario: reserva.email_huesped,
+      asunto: `Factura electronica ${numeroFactura}`,
+      cuerpo: JSON.stringify({
+        mensaje: `Factura electronica generada para la reserva ${reserva.codigo_confirmacion}`,
+        factura: facturaElectronica,
+      }),
+    },
+  );
+
+  return resultado.insertId;
+}
+
 /* istanbul ignore next */
 export async function registrarCheckout(idReserva, contexto = {}) {
   const conn = await getConnection();
@@ -40,9 +80,10 @@ export async function registrarCheckout(idReserva, contexto = {}) {
 
     const [[reserva]] = await conn.execute(
       `
-        SELECT r.*, ci.id_checkin, tp.token
+        SELECT r.*, ci.id_checkin, tp.token, h.email AS email_huesped
         FROM reservas r
         JOIN checkin ci ON ci.id_reserva = r.id_reserva
+        JOIN huespedes h ON h.id_huesped = r.id_huesped
         LEFT JOIN tokens_pago tp ON tp.id_reserva = r.id_reserva AND tp.vigente = TRUE
         WHERE r.id_reserva = :idReserva
         FOR UPDATE
@@ -88,13 +129,31 @@ export async function registrarCheckout(idReserva, contexto = {}) {
     });
 
     const pago = await cobrarSaldo({ tokenPago: reserva.token, monto: liquidacion.saldo_cobrado });
+    if (liquidacion.saldo_cobrado > 0) {
+      await logAudit({
+        conn,
+        userId: contexto.userId ?? null,
+        accion: 'INSERT',
+        tablaAfectada: 'facturas',
+        idRegistro: Number(idReserva),
+        valorNuevo: {
+          accion_negocio: 'COBRO_SALDO_CHECKOUT',
+          id_reserva: Number(idReserva),
+          monto: liquidacion.saldo_cobrado,
+          referencia: pago.referencia,
+          proveedor: pago.proveedor,
+        },
+        ip: contexto.ip ?? null,
+        userAgent: contexto.userAgent ?? null,
+      });
+    }
 
     const [resultadoCheckout] = await conn.execute(
       `
         INSERT INTO checkout
           (id_checkin, id_recepcionista, total_cobrado, estado_habitacion, cargos_adicionales, observaciones)
         VALUES
-          (:idCheckin, :idRecepcionista, :totalCobrado, 'bueno', :cargosAdicionales, :observaciones)
+          (:idCheckin, :idRecepcionista, :totalCobrado, 'sucia', :cargosAdicionales, :observaciones)
       `,
       {
         idCheckin: reserva.id_checkin,
@@ -110,10 +169,12 @@ export async function registrarCheckout(idReserva, contexto = {}) {
       { idReserva },
     );
 
-    await conn.execute(
-      "UPDATE habitaciones SET estado = 'limpieza' WHERE id_habitacion = :idHabitacion",
-      { idHabitacion: reserva.id_habitacion },
-    );
+    const cambioHabitacion = await cambiarEstadoHabitacionEnTransaccion(conn, reserva.id_habitacion, 'sucia', {
+      ...contexto,
+      rol: contexto.rol ?? 'Recepcionista',
+      accionNegocio: 'CHECKOUT_HABITACION_SUCIA',
+      observaciones: contexto.observaciones ?? `Check-out reserva ${idReserva}`,
+    });
 
     const numeroFactura = `FAC-${Date.now()}`;
     const [resultadoFactura] = await conn.execute(
@@ -121,7 +182,7 @@ export async function registrarCheckout(idReserva, contexto = {}) {
         INSERT INTO facturas
           (id_checkin, id_checkout, numero_factura, subtotal, impuestos, total, metodo_pago, estado_pago, email_enviado)
         VALUES
-          (:idCheckin, :idCheckout, :numeroFactura, :subtotal, :impuestos, :total, 'tarjeta_credito', 'pagada', TRUE)
+          (:idCheckin, :idCheckout, :numeroFactura, :subtotal, :impuestos, :total, 'tarjeta_credito', 'pagada', FALSE)
       `,
       {
         idCheckin: reserva.id_checkin,
@@ -133,6 +194,14 @@ export async function registrarCheckout(idReserva, contexto = {}) {
       },
     );
 
+    const facturaElectronica = crearFacturaElectronicaPayload({
+      numeroFactura,
+      idFactura: resultadoFactura.insertId,
+      idReserva,
+      liquidacion,
+    });
+    const idNotificacion = await encolarEnvioFactura(conn, { reserva, numeroFactura, facturaElectronica });
+
     await logAudit({
       conn,
       userId: contexto.userId ?? null,
@@ -143,6 +212,7 @@ export async function registrarCheckout(idReserva, contexto = {}) {
         accion_negocio: 'CHECKOUT',
         id_reserva: Number(idReserva),
         id_factura: resultadoFactura.insertId,
+        id_notificacion: idNotificacion,
         saldo_cobrado: liquidacion.saldo_cobrado,
       },
       ip: contexto.ip ?? null,
@@ -150,13 +220,22 @@ export async function registrarCheckout(idReserva, contexto = {}) {
     });
 
     await conn.commit();
-    await emitirFacturaGenerada({ id_reserva: Number(idReserva), id_factura: resultadoFactura.insertId, numero_factura: numeroFactura });
+    await emitirFacturaGenerada({
+      id_reserva: Number(idReserva),
+      id_factura: resultadoFactura.insertId,
+      numero_factura: numeroFactura,
+      id_notificacion: idNotificacion,
+    });
 
     return {
       id_checkout: resultadoCheckout.insertId,
       resumen_factura: liquidacion,
       estado_pago: pago.aprobado ? 'aprobado' : 'rechazado',
-      factura_enviada: true,
+      factura_electronica: facturaElectronica,
+      factura_enviada: false,
+      notificacion_encolada: true,
+      id_notificacion: idNotificacion,
+      estado_habitacion: cambioHabitacion.estado_nuevo,
       mensaje: 'Check-out procesado exitosamente',
     };
   } catch (error) {

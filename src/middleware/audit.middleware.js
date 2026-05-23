@@ -17,44 +17,49 @@ export async function logAudit({
   ip = null,
   userAgent = null,
 }) {
-  try {
-    const datosNuevos = {
-      ...(valorNuevo ?? {}),
-      hash_integridad: crearHash({
-        userId,
-        accion,
-        tablaAfectada,
-        idRegistro,
-        valorAnterior,
-        valorNuevo,
-        timestamp: new Date().toISOString(),
-      }),
-    };
+  const timestamp = new Date().toISOString();
+  const hashIntegridad = crearHash({
+    userId,
+    accion,
+    tablaAfectada,
+    idRegistro,
+    valorAnterior,
+    valorNuevo,
+    timestamp,
+  });
+  const datosNuevos = {
+    ...(valorNuevo ?? {}),
+    timestamp_auditoria: timestamp,
+    hash_integridad: hashIntegridad,
+    repositorio_integridad: {
+      nombre: 'log_auditoria_hash_chain',
+      modo: 'solo_insercion',
+      hash_sha256: hashIntegridad,
+    },
+  };
 
-    const sql = `
-      INSERT INTO log_auditoria
-        (id_usuario, tabla_afectada, accion, id_registro, datos_anteriores, datos_nuevos, ip_origen, user_agent)
-      VALUES
-        (:userId, :tablaAfectada, :accion, :idRegistro, :valorAnterior, :valorNuevo, :ip, :userAgent)
-    `;
-    const params = {
-      userId,
-      tablaAfectada,
-      accion,
-      idRegistro,
-      valorAnterior: valorAnterior === null ? null : JSON.stringify(valorAnterior),
-      valorNuevo: JSON.stringify(datosNuevos),
-      ip,
-      userAgent,
-    };
+  const sql = `
+    INSERT INTO log_auditoria
+      (id_usuario, tabla_afectada, accion, id_registro, datos_anteriores, datos_nuevos, ip_origen, user_agent)
+    VALUES
+      (:userId, :tablaAfectada, :accion, :idRegistro, :valorAnterior, :valorNuevo, :ip, :userAgent)
+  `;
+  const params = {
+    userId,
+    tablaAfectada,
+    accion,
+    idRegistro,
+    valorAnterior: valorAnterior === null ? null : JSON.stringify(valorAnterior),
+    valorNuevo: JSON.stringify(datosNuevos),
+    ip,
+    userAgent,
+  };
 
-    if (conn) {
-      await conn.execute(sql, params);
-      return;
-    }
-
-    await pool.execute(sql, params);
-  } catch (error) {
-    console.error('No fue posible registrar auditoría:', error.message);
+  if (conn) {
+    await conn.execute(sql, params);
+    return { hash_integridad: hashIntegridad, timestamp };
   }
+
+  await pool.execute(sql, params);
+  return { hash_integridad: hashIntegridad, timestamp };
 }

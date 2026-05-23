@@ -6,6 +6,7 @@ import { logAudit } from '../middleware/audit.middleware.js';
 const ESTADOS = {
   disponible: 'disponible',
   ocupada: 'ocupada',
+  sucia: 'sucia',
   limpieza: 'limpieza',
   mantenimiento: 'mantenimiento',
   bloqueada: 'bloqueada',
@@ -13,7 +14,8 @@ const ESTADOS = {
 
 const TRANSICIONES_VALIDAS = new Map([
   ['disponible', new Set(['ocupada', 'mantenimiento', 'bloqueada'])],
-  ['ocupada', new Set(['limpieza'])],
+  ['ocupada', new Set(['sucia', 'limpieza'])],
+  ['sucia', new Set(['limpieza', 'mantenimiento'])],
   ['limpieza', new Set(['disponible', 'mantenimiento'])],
   ['mantenimiento', new Set(['disponible', 'limpieza'])],
   ['bloqueada', new Set(['disponible', 'mantenimiento'])],
@@ -27,7 +29,7 @@ function normalizarRol(rol) {
 
 export function normalizarEstado(estado) {
   if (!estado || typeof estado !== 'string') return null;
-  const normalizado = estado.trim().toLowerCase().replace('en ', '').replace('sucia', 'limpieza');
+  const normalizado = estado.trim().toLowerCase().replace('en ', '');
   return ESTADOS[normalizado] ?? null;
 }
 
@@ -43,7 +45,7 @@ export function validarTransicionHabitacion(estadoActual, estadoNuevo, rol) {
     throw new ParametrosInvalidosError(`Transicion no permitida: ${actual} -> ${nuevo}`);
   }
 
-  if (nuevo === 'limpieza' || (actual === 'limpieza' && nuevo === 'disponible')) {
+  if ((actual === 'sucia' && nuevo === 'limpieza') || (actual === 'limpieza' && nuevo === 'disponible')) {
     if (!ROLES_LIMPIEZA.has(normalizarRol(rol)) && rol !== 'Administrador') {
       throw new AccesoDenegadoError('Solo personal de limpieza puede ejecutar esta transicion');
     }
@@ -53,7 +55,50 @@ export function validarTransicionHabitacion(estadoActual, estadoNuevo, rol) {
     throw new AccesoDenegadoError('Solo recepcion puede marcar habitaciones en mantenimiento');
   }
 
-  return { actual, nuevo, bloqueaReservas: nuevo === 'bloqueada' || nuevo === 'mantenimiento' || nuevo === 'limpieza' };
+  return { actual, nuevo, bloqueaReservas: nuevo === 'bloqueada' || nuevo === 'mantenimiento' || nuevo === 'limpieza' || nuevo === 'sucia' };
+}
+
+export async function cambiarEstadoHabitacionEnTransaccion(conn, idHabitacion, estadoSolicitado, contexto = {}) {
+  const [[habitacion]] = await conn.execute(
+    'SELECT id_habitacion, estado FROM habitaciones WHERE id_habitacion = :idHabitacion FOR UPDATE',
+    { idHabitacion },
+  );
+
+  if (!habitacion) {
+    throw new RecursoNoEncontradoError('La habitacion solicitada no existe');
+  }
+
+  const transicion = validarTransicionHabitacion(habitacion.estado, estadoSolicitado, contexto.rol);
+  const activo = transicion.bloqueaReservas ? 0 : 1;
+
+  await conn.execute(
+    'UPDATE habitaciones SET estado = :estado, activo = :activo WHERE id_habitacion = :idHabitacion',
+    { estado: transicion.nuevo, activo, idHabitacion },
+  );
+
+  await logAudit({
+    conn,
+    userId: contexto.userId ?? null,
+    accion: 'UPDATE',
+    tablaAfectada: 'habitaciones',
+    idRegistro: Number(idHabitacion),
+    valorAnterior: { estado: transicion.actual },
+    valorNuevo: {
+      accion_negocio: contexto.accionNegocio ?? 'CAMBIO_ESTADO_HABITACION',
+      estado: transicion.nuevo,
+      observaciones: contexto.observaciones ?? null,
+    },
+    ip: contexto.ip ?? null,
+    userAgent: contexto.userAgent ?? null,
+  });
+
+  return {
+    id_habitacion: Number(idHabitacion),
+    estado_anterior: transicion.actual,
+    estado_nuevo: transicion.nuevo,
+    bloqueada_para_reservas: transicion.bloqueaReservas,
+    mensaje: 'Estado de habitacion actualizado exitosamente',
+  };
 }
 
 /* istanbul ignore next */
@@ -62,47 +107,9 @@ export async function cambiarEstadoHabitacion(idHabitacion, estadoSolicitado, co
   try {
     await conn.beginTransaction();
 
-    const [[habitacion]] = await conn.execute(
-      'SELECT id_habitacion, estado FROM habitaciones WHERE id_habitacion = :idHabitacion FOR UPDATE',
-      { idHabitacion },
-    );
-
-    if (!habitacion) {
-      throw new RecursoNoEncontradoError('La habitacion solicitada no existe');
-    }
-
-    const transicion = validarTransicionHabitacion(habitacion.estado, estadoSolicitado, contexto.rol);
-    const activo = transicion.bloqueaReservas ? 0 : 1;
-
-    await conn.execute(
-      'UPDATE habitaciones SET estado = :estado, activo = :activo WHERE id_habitacion = :idHabitacion',
-      { estado: transicion.nuevo, activo, idHabitacion },
-    );
-
-    await logAudit({
-      conn,
-      userId: contexto.userId ?? null,
-      accion: 'UPDATE',
-      tablaAfectada: 'habitaciones',
-      idRegistro: Number(idHabitacion),
-      valorAnterior: { estado: transicion.actual },
-      valorNuevo: {
-        accion_negocio: 'CAMBIO_ESTADO_HABITACION',
-        estado: transicion.nuevo,
-        observaciones: contexto.observaciones ?? null,
-      },
-      ip: contexto.ip ?? null,
-      userAgent: contexto.userAgent ?? null,
-    });
-
+    const resultado = await cambiarEstadoHabitacionEnTransaccion(conn, idHabitacion, estadoSolicitado, contexto);
     await conn.commit();
-    return {
-      id_habitacion: Number(idHabitacion),
-      estado_anterior: transicion.actual,
-      estado_nuevo: transicion.nuevo,
-      bloqueada_para_reservas: transicion.bloqueaReservas,
-      mensaje: 'Estado de habitacion actualizado exitosamente',
-    };
+    return resultado;
   } catch (error) {
     await conn.rollback();
     throw error;

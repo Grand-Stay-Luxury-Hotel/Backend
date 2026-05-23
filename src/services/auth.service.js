@@ -6,6 +6,8 @@ import { query, getConnection } from '../utils/db.js';
 import { AccesoDenegadoError, NoAutorizadoError, ParametrosInvalidosError } from '../utils/errors.js';
 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN ?? '8h';
+const TOTP_INTERVAL_SECONDS = 30;
+const TOTP_WINDOW = 1;
 
 export function validarHashBcrypt(passwordHash) {
   const match = /^\$2[aby]\$(\d{2})\$/.exec(passwordHash ?? '');
@@ -17,8 +19,58 @@ function validarHashSha256(passwordHash) {
   return /^[a-f0-9]{64}$/i.test(passwordHash ?? '');
 }
 
+function permiteHashesLegacy() {
+  return process.env.ALLOW_LEGACY_PASSWORD_HASHES === 'true';
+}
+
+function decodificarBase32(secret) {
+  const alfabeto = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const limpio = String(secret ?? '').replace(/=+$/g, '').replace(/\s+/g, '').toUpperCase();
+  let bits = '';
+  for (const caracter of limpio) {
+    const valor = alfabeto.indexOf(caracter);
+    if (valor < 0) return Buffer.from(secret ?? '');
+    bits += valor.toString(2).padStart(5, '0');
+  }
+
+  const bytes = [];
+  for (let i = 0; i + 8 <= bits.length; i += 8) {
+    bytes.push(Number.parseInt(bits.slice(i, i + 8), 2));
+  }
+  return Buffer.from(bytes);
+}
+
+export function generarTotp(secret, fecha = new Date()) {
+  const contador = Math.floor(fecha.getTime() / 1000 / TOTP_INTERVAL_SECONDS);
+  const buffer = Buffer.alloc(8);
+  buffer.writeBigUInt64BE(BigInt(contador));
+  const hmac = crypto.createHmac('sha1', decodificarBase32(secret)).update(buffer).digest();
+  const offset = hmac[hmac.length - 1] & 0x0f;
+  const codigo = (
+    ((hmac[offset] & 0x7f) << 24)
+    | ((hmac[offset + 1] & 0xff) << 16)
+    | ((hmac[offset + 2] & 0xff) << 8)
+    | (hmac[offset + 3] & 0xff)
+  ) % 1000000;
+  return String(codigo).padStart(6, '0');
+}
+
+export function validarTotp(secret, otp, fecha = new Date()) {
+  if (!secret || !otp) return false;
+  const recibido = String(otp).padStart(6, '0');
+  for (let ventana = -TOTP_WINDOW; ventana <= TOTP_WINDOW; ventana += 1) {
+    const fechaVentana = new Date(fecha.getTime() + ventana * TOTP_INTERVAL_SECONDS * 1000);
+    if (generarTotp(secret, fechaVentana) === recibido) return true;
+  }
+  return false;
+}
+
 export function verificarPassword(password, passwordHash) {
   if (!password || !passwordHash) return false;
+
+  if (!validarHashBcrypt(passwordHash) && !permiteHashesLegacy()) {
+    return false;
+  }
 
   if (passwordHash.startsWith('plain:')) {
     const esperado = Buffer.from(passwordHash.replace('plain:', ''));
@@ -47,8 +99,13 @@ export function verificarPassword(password, passwordHash) {
 
 export function validarOtpAdministrador(usuario, otp) {
   if (usuario.rol !== 'Administrador') return true;
-  const otpEsperado = usuario.otp_actual ?? process.env.ADMIN_OTP ?? '123456';
-  if (!otp || otp !== otpEsperado) {
+  const totpSecret = usuario.otp_secret ?? process.env.ADMIN_OTP_SECRET;
+  const otpEstatico = process.env.ADMIN_OTP;
+  const otpValido = totpSecret
+    ? validarTotp(totpSecret, otp)
+    : Boolean(otpEstatico && otp === otpEstatico);
+
+  if (!otpValido) {
     throw new AccesoDenegadoError('Codigo OTP requerido para Administrador');
   }
   return true;
@@ -88,7 +145,7 @@ export async function login({ usuario, password, otp }) {
     throw new NoAutorizadoError('Credenciales incorrectas');
   }
 
-  if (!validarHashBcrypt(encontrado.password_hash) && !encontrado.password_hash.startsWith('plain:') && !validarHashSha256(encontrado.password_hash)) {
+  if (!validarHashBcrypt(encontrado.password_hash) && !permiteHashesLegacy()) {
     throw new NoAutorizadoError('Credenciales incorrectas');
   }
 

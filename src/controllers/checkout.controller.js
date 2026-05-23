@@ -6,6 +6,7 @@ export async function postCheckout(req, res, next) {
     const resultado = await registrarCheckout(req.params.reservaId, {
       userId: req.user?.id_usuario,
       idRecepcionista: req.user?.id_recepcionista,
+      rol: req.user?.rol,
       observaciones: req.body?.observaciones ?? null,
       ip: req.ip,
       userAgent: req.headers['user-agent'],
