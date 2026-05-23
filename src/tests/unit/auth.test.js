@@ -1,7 +1,19 @@
 import bcrypt from 'bcryptjs';
-import { validarHashBcrypt, validarOtpAdministrador, verificarPassword } from '../../services/auth.service.js';
+import {
+  generarTotp,
+  validarHashBcrypt,
+  validarOtpAdministrador,
+  validarTotp,
+  verificarPassword,
+} from '../../services/auth.service.js';
 
 describe('HU-B09 auth.service', () => {
+  const envOriginal = { ...process.env };
+
+  afterEach(() => {
+    process.env = { ...envOriginal };
+  });
+
   test('acepta hashes bcrypt con coste mayor o igual a 12', () => {
     expect(validarHashBcrypt('$2b$12$abcdefghijklmnopqrstuv')).toBe(true);
   });
@@ -10,41 +22,64 @@ describe('HU-B09 auth.service', () => {
     expect(validarHashBcrypt('$2b$10$abcdefghijklmnopqrstuv')).toBe(false);
   });
 
-  test('verifica password con comparacion segura para hash de pruebas', () => {
+  test('rechaza hashes legacy si no estan habilitados explicitamente', () => {
+    delete process.env.ALLOW_LEGACY_PASSWORD_HASHES;
+    expect(verificarPassword('secreto', 'plain:secreto')).toBe(false);
+    expect(verificarPassword('secreto', 'sha256:df733656293a19c54f69093ba916f0a1a2a3c151fc95c13f3a794c2631eeb3a6')).toBe(false);
+  });
+
+  test('permite hashes legacy solo con flag de compatibilidad', () => {
+    process.env.ALLOW_LEGACY_PASSWORD_HASHES = 'true';
     expect(verificarPassword('secreto', 'plain:secreto')).toBe(true);
-  });
-
-  test('verifica password con hash sha256', () => {
     expect(verificarPassword('secreto', 'sha256:df733656293a19c54f69093ba916f0a1a2a3c151fc95c13f3a794c2631eeb3a6')).toBe(true);
-  });
-
-  test('verifica password con hash sha256 sin prefijo usado por los datos semilla', () => {
     expect(verificarPassword('Admin2024!', '5a55c7873ed7338f35d782adb513d336a36086ddec0fa4b6444fda6d440387c2')).toBe(true);
+    expect(verificarPassword('secreto', 'legacy-no-soportado')).toBe(false);
   });
 
-  test('verifica password con bcrypt real', () => {
+  test('verifica password con bcrypt real coste 12', () => {
     const hash = bcrypt.hashSync('secreto', 12);
     expect(verificarPassword('secreto', hash)).toBe(true);
     expect(verificarPassword('otro', hash)).toBe(false);
   });
 
   test('rechaza password vacio o hash ausente', () => {
-    expect(verificarPassword('', 'plain:secreto')).toBe(false);
+    expect(verificarPassword('', bcrypt.hashSync('secreto', 12))).toBe(false);
     expect(verificarPassword('secreto', undefined)).toBe(false);
   });
 
   test('exige OTP para administrador', () => {
+    process.env.ADMIN_OTP = '123456';
     let errorLanzado;
     try {
-      validarOtpAdministrador({ rol: 'Administrador', otp_actual: '123456' }, undefined);
+      validarOtpAdministrador({ rol: 'Administrador' }, undefined);
     } catch (error) {
       errorLanzado = error;
     }
     expect(errorLanzado.statusCode).toBe(403);
   });
 
-  test('acepta OTP correcto para administrador y omite OTP en otros roles', () => {
-    expect(validarOtpAdministrador({ rol: 'Administrador', otp_actual: '123456' }, '123456')).toBe(true);
+  test('acepta OTP estatico configurado y omite OTP en otros roles', () => {
+    process.env.ADMIN_OTP = '123456';
+    expect(validarOtpAdministrador({ rol: 'Administrador' }, '123456')).toBe(true);
     expect(validarOtpAdministrador({ rol: 'Recepcionista' }, undefined)).toBe(true);
+  });
+
+  test('acepta TOTP valido para administrador', () => {
+    process.env.ADMIN_OTP_SECRET = 'JBSWY3DPEHPK3PXP';
+    const fecha = new Date('2026-05-23T12:00:00Z');
+    const otp = generarTotp(process.env.ADMIN_OTP_SECRET, fecha);
+    jest.useFakeTimers().setSystemTime(fecha);
+    expect(validarOtpAdministrador({ rol: 'Administrador' }, otp)).toBe(true);
+    jest.useRealTimers();
+  });
+
+  test('rechaza TOTP faltante o invalido', () => {
+    expect(validarTotp('', '123456')).toBe(false);
+    expect(validarTotp('JBSWY3DPEHPK3PXP', '')).toBe(false);
+    expect(validarTotp('JBSWY3DPEHPK3PXP', '000000', new Date('2026-05-23T12:00:00Z'))).toBe(false);
+  });
+
+  test('genera TOTP con secreto no base32 usando bytes crudos', () => {
+    expect(generarTotp('raw-secret', new Date('2026-05-23T12:00:00Z'))).toHaveLength(6);
   });
 });

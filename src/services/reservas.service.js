@@ -113,6 +113,23 @@ export async function crearReserva(payload, contexto = {}) {
       conn,
       userId: contexto.userId ?? null,
       accion: 'INSERT',
+      tablaAfectada: 'tokens_pago',
+      idRegistro: resultadoReserva.insertId,
+      valorNuevo: {
+        accion_negocio: 'COBRO_ANTICIPO_RESERVA',
+        id_reserva: resultadoReserva.insertId,
+        monto: Number(payload.monto_anticipo),
+        referencia: pago.referencia,
+        proveedor: pago.proveedor,
+      },
+      ip: contexto.ip ?? null,
+      userAgent: contexto.userAgent ?? null,
+    });
+
+    await logAudit({
+      conn,
+      userId: contexto.userId ?? null,
+      accion: 'INSERT',
       tablaAfectada: 'reservas',
       idRegistro: resultadoReserva.insertId,
       valorNuevo: { accion_negocio: 'RESERVA_CREADA', id_reserva: resultadoReserva.insertId },
@@ -161,7 +178,23 @@ export async function cancelarReserva(idReserva, contexto = {}) {
 
     const penalizacion = calcularPenalizacion(reserva.fecha_entrada, Number(reserva.monto_pagado));
     if (penalizacion.montoReembolso > 0) {
-      await reembolsarPago({ tokenPago: reserva.token, monto: penalizacion.montoReembolso });
+      const reembolso = await reembolsarPago({ tokenPago: reserva.token, monto: penalizacion.montoReembolso });
+      await logAudit({
+        conn,
+        userId: contexto.userId ?? null,
+        accion: 'INSERT',
+        tablaAfectada: 'tokens_pago',
+        idRegistro: Number(idReserva),
+        valorNuevo: {
+          accion_negocio: 'REEMBOLSO_CANCELACION_RESERVA',
+          id_reserva: Number(idReserva),
+          monto: penalizacion.montoReembolso,
+          referencia: reembolso.referencia,
+          proveedor: reembolso.proveedor,
+        },
+        ip: contexto.ip ?? null,
+        userAgent: contexto.userAgent ?? null,
+      });
     }
 
     await conn.execute(

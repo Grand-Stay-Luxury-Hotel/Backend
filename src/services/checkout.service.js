@@ -129,6 +129,24 @@ export async function registrarCheckout(idReserva, contexto = {}) {
     });
 
     const pago = await cobrarSaldo({ tokenPago: reserva.token, monto: liquidacion.saldo_cobrado });
+    if (liquidacion.saldo_cobrado > 0) {
+      await logAudit({
+        conn,
+        userId: contexto.userId ?? null,
+        accion: 'INSERT',
+        tablaAfectada: 'facturas',
+        idRegistro: Number(idReserva),
+        valorNuevo: {
+          accion_negocio: 'COBRO_SALDO_CHECKOUT',
+          id_reserva: Number(idReserva),
+          monto: liquidacion.saldo_cobrado,
+          referencia: pago.referencia,
+          proveedor: pago.proveedor,
+        },
+        ip: contexto.ip ?? null,
+        userAgent: contexto.userAgent ?? null,
+      });
+    }
 
     const [resultadoCheckout] = await conn.execute(
       `
