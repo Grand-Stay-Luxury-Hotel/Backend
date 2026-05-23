@@ -340,6 +340,7 @@ export const swaggerSpec = swaggerJSDoc({
           parameters: [
             { name: 'mes', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 12 }, example: 5 },
             { name: 'anio', in: 'query', schema: { type: 'integer' }, example: 2025 },
+            { name: 'meses', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 12 }, example: 1 },
           ],
           responses: {
             200: { description: 'Reporte generado' },
@@ -356,6 +357,9 @@ export const swaggerSpec = swaggerJSDoc({
           parameters: [
             { name: 'mes', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 12 }, example: 5 },
             { name: 'anio', in: 'query', schema: { type: 'integer' }, example: 2025 },
+            { name: 'meses', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 12 }, example: 1 },
+            { name: 'fechaInicio', in: 'query', schema: { type: 'string', format: 'date' }, example: '2025-05-01' },
+            { name: 'fechaFin', in: 'query', schema: { type: 'string', format: 'date' }, example: '2025-06-01' },
           ],
           responses: {
             200: { description: 'Reporte generado' },
