@@ -94,8 +94,8 @@ export async function registrarCheckout(idReserva, contexto = {}) {
       throw new ReservaNoEncontradaError();
     }
 
-    if (reserva.estado !== 'confirmada') {
-      throw new ReservaEstadoInvalidoError('Solo se puede registrar check-out para reservas confirmadas con check-in activo');
+    if (reserva.estado !== 'en_curso') {
+      throw new ReservaEstadoInvalidoError('Solo se puede registrar check-out para reservas con check-in activo');
     }
 
     const [[tarifa]] = await conn.execute(

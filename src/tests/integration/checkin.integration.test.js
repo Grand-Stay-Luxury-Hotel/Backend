@@ -4,7 +4,7 @@ import request from 'supertest';
 import { jest } from '@jest/globals';
 import { registrarCheckin } from '../../services/checkin.service.js';
 import { createApp } from '../../app.js';
-import { ReservaEstadoInvalidoError, ReservaNoEncontradaError } from '../../utils/errors.js';
+import { CheckinDuplicadoError, ReservaEstadoInvalidoError, ReservaNoEncontradaError } from '../../utils/errors.js';
 
 jest.mock('../../services/checkin.service.js', () => ({
   registrarCheckin: jest.fn(),
@@ -24,8 +24,21 @@ describe('Integración HU-B05 check-in', () => {
   });
 
   test('POST /checkin/:reservaId válido retorna 200', () => {
-    registrarCheckin.mockResolvedValue({ id_checkin: 15, mensaje: 'Check-in registrado exitosamente' });
-    return request(app).post('/checkin/42').set('Authorization', `Bearer ${token('Recepcionista')}`).send({}).expect(200);
+    registrarCheckin.mockResolvedValue({
+      id_checkin: 15,
+      estado_reserva: 'en_curso',
+      estado_habitacion: 'ocupada',
+      mensaje: 'Check-in registrado exitosamente',
+    });
+    return request(app)
+      .post('/checkin/42')
+      .set('Authorization', `Bearer ${token('Recepcionista')}`)
+      .send({})
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.estado_reserva).toBe('en_curso');
+        expect(res.body.estado_habitacion).toBe('ocupada');
+      });
   });
 
   test('POST /checkin/:reservaId sin auth retorna 401', () => request(app).post('/checkin/42').send({}).expect(401));
@@ -38,5 +51,10 @@ describe('Integración HU-B05 check-in', () => {
   test('POST /checkin/:reservaId con reserva inexistente retorna 404', () => {
     registrarCheckin.mockRejectedValue(new ReservaNoEncontradaError());
     return request(app).post('/checkin/999').set('Authorization', `Bearer ${token('Recepcionista')}`).send({}).expect(404);
+  });
+
+  test('POST /checkin/:reservaId duplicado retorna 409', () => {
+    registrarCheckin.mockRejectedValue(new CheckinDuplicadoError());
+    return request(app).post('/checkin/42').set('Authorization', `Bearer ${token('Recepcionista')}`).send({}).expect(409);
   });
 });

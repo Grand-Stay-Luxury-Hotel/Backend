@@ -106,11 +106,6 @@ export async function crearReserva(payload, contexto = {}) {
     );
 
     await conn.execute(
-      'UPDATE habitaciones SET estado = :estado WHERE id_habitacion = :idHabitacion',
-      { estado: 'ocupada', idHabitacion: payload.id_habitacion },
-    );
-
-    await conn.execute(
       `
         INSERT INTO tokens_pago
           (id_reserva, token, proveedor, monto_autorizado, referencia_ext)

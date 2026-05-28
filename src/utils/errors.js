@@ -52,6 +52,12 @@ export class ReservaEstadoInvalidoError extends AppError {
   }
 }
 
+export class CheckinDuplicadoError extends AppError {
+  constructor(mensaje = 'La reserva ya tiene un check-in registrado') {
+    super('CHECKIN_DUPLICADO', mensaje, 409);
+  }
+}
+
 export class RecursoNoEncontradoError extends AppError {
   constructor(mensaje = 'El recurso solicitado no existe') {
     super('RECURSO_NO_ENCONTRADO', mensaje, 404);

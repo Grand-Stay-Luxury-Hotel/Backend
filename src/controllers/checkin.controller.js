@@ -6,6 +6,7 @@ export async function postCheckin(req, res, next) {
     const resultado = await registrarCheckin(req.params.reservaId, {
       userId: req.user?.id_usuario,
       idRecepcionista: req.user?.id_recepcionista,
+      rol: req.user?.rol,
       documentoVerificado: req.body?.documento_verificado ?? true,
       observaciones: req.body?.observaciones ?? null,
       ip: req.ip,
