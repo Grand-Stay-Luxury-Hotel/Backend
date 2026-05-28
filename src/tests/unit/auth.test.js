@@ -32,7 +32,7 @@ describe('HU-B09 auth.service', () => {
     process.env.ALLOW_LEGACY_PASSWORD_HASHES = 'true';
     expect(verificarPassword('secreto', 'plain:secreto')).toBe(true);
     expect(verificarPassword('secreto', 'sha256:df733656293a19c54f69093ba916f0a1a2a3c151fc95c13f3a794c2631eeb3a6')).toBe(true);
-    expect(verificarPassword('Admin2024!', '5a55c7873ed7338f35d782adb513d336a36086ddec0fa4b6444fda6d440387c2')).toBe(true);
+    expect(verificarPassword('PasswordLegacy!', 'fe4718f53faa985da8f59e032024bb460b5cafb1a4f8fbb849d61d638a34b828')).toBe(true);
     expect(verificarPassword('secreto', 'legacy-no-soportado')).toBe(false);
   });
 

@@ -8,30 +8,37 @@ INSERT INTO roles (nombre) VALUES
     ('Administrador'),
     ('Recepcionista'),
     ('PersonalLimpieza'),
-    ('Huesped');
+    ('Huesped'),
+    ('ServicioTecnico');
 
--- Usuarios (password: "Password123!" hashed with bcrypt cost 12)
--- Hash generado: $2a$12$LJ3m4ys3Lk7M9gZVqK8F.eOqX5vN2wR8tY6uI0pA3sD7fG1hJ4kLm
+-- Usuarios de prueba. La contrasena real esta documentada fuera del repo.
+-- Hash bcrypt coste 12 generado para la clave compartida por el equipo.
 INSERT INTO usuarios (email, password_hash, id_rol, activo, nombre, apellido) VALUES
-    ('admin@grandstay.com', '$2a$12$Wqv2CEeoVNppWNKRO8EX/eCOM1BgSE.VUGBIL8qkJu1A4IfxOpIv.', 1, TRUE, 'Carlos', 'Admin'),
-    ('recepcion@grandstay.com', '$2a$12$Wqv2CEeoVNppWNKRO8EX/eCOM1BgSE.VUGBIL8qkJu1A4IfxOpIv.', 2, TRUE, 'Maria', 'Recepcion'),
-    ('limpieza@grandstay.com', '$2a$12$Wqv2CEeoVNppWNKRO8EX/eCOM1BgSE.VUGBIL8qkJu1A4IfxOpIv.', 3, TRUE, 'Jose', 'Limpieza'),
-    ('huesped1@grandstay.com', '$2a$12$Wqv2CEeoVNppWNKRO8EX/eCOM1BgSE.VUGBIL8qkJu1A4IfxOpIv.', 4, TRUE, 'Ana', 'Garcia'),
-    ('huesped2@grandstay.com', '$2a$12$Wqv2CEeoVNppWNKRO8EX/eCOM1BgSE.VUGBIL8qkJu1A4IfxOpIv.', 4, TRUE, 'Luis', 'Martinez');
+    ('admin@grandstay.com', '$2a$12$3DxrfwqmI0WSK90g.e5Kme0Ac6oW0Zoi/.IqEACtI3eB1uexwy0CO', 1, TRUE, 'Carlos', 'Mendoza'),
+    ('recep1@grandstay.com', '$2a$12$3DxrfwqmI0WSK90g.e5Kme0Ac6oW0Zoi/.IqEACtI3eB1uexwy0CO', 2, TRUE, 'Laura', 'Gomez'),
+    ('recep2@grandstay.com', '$2a$12$3DxrfwqmI0WSK90g.e5Kme0Ac6oW0Zoi/.IqEACtI3eB1uexwy0CO', 2, TRUE, 'Andres', 'Rios'),
+    ('limpieza1@grandstay.com', '$2a$12$3DxrfwqmI0WSK90g.e5Kme0Ac6oW0Zoi/.IqEACtI3eB1uexwy0CO', 3, TRUE, 'Maria', 'Castillo'),
+    ('tecnico1@grandstay.com', '$2a$12$3DxrfwqmI0WSK90g.e5Kme0Ac6oW0Zoi/.IqEACtI3eB1uexwy0CO', 5, TRUE, 'Jorge', 'Herrera'),
+    ('huesped1@grandstay.com', '$2a$12$3DxrfwqmI0WSK90g.e5Kme0Ac6oW0Zoi/.IqEACtI3eB1uexwy0CO', 4, TRUE, 'Sofia', 'Torres'),
+    ('huesped2@grandstay.com', '$2a$12$3DxrfwqmI0WSK90g.e5Kme0Ac6oW0Zoi/.IqEACtI3eB1uexwy0CO', 4, TRUE, 'Mateo', 'Vargas');
 
 -- Recepcionistas
-INSERT INTO recepcionistas (id_usuario) VALUES (2);
+INSERT INTO recepcionistas (id_usuario) VALUES (2), (3);
 
 -- Personal de Limpieza
-INSERT INTO personal_limpieza (id_usuario) VALUES (3);
+INSERT INTO personal_limpieza (id_usuario) VALUES (4);
+
+-- Servicio tecnico
+INSERT INTO especialidades_tecnicas (nombre, descripcion) VALUES ('Mantenimiento general', 'Soporte tecnico operativo del hotel');
+INSERT INTO servicio_tecnico (id_usuario, id_especialidad, nivel_certificacion, turno, fecha_ingreso) VALUES (5, 1, 'Nivel II', 'rotativo', '2023-02-01');
 
 -- Administradores
 INSERT INTO administradores (id_usuario, otp_actual) VALUES (1, '123456');
 
 -- Huespedes
 INSERT INTO huespedes (id_usuario, nombres, apellidos, email, num_documento, telefono) VALUES
-    (4, 'Ana', 'Garcia', 'ana.garcia@email.com', '1234567890', '+57 300 123 4567'),
-    (5, 'Luis', 'Martinez', 'luis.martinez@email.com', '0987654321', '+57 310 987 6543');
+    (6, 'Sofia', 'Torres', 'huesped1@grandstay.com', '1020304050', '+57 310 123 4567'),
+    (7, 'Mateo', 'Vargas', 'huesped2@grandstay.com', '1030405060', '+57 320 987 6543');
 
 -- Tipos de Habitacion
 INSERT INTO tipos_habitacion (nombre, descripcion, capacidad, camas, activo) VALUES

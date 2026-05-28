@@ -3,6 +3,7 @@ import request from 'supertest';
 import { jest } from '@jest/globals';
 import { createApp } from '../../app.js';
 import { cambiarEstadoHabitacion } from '../../services/habitaciones.service.js';
+import { buscarHuespedes } from '../../services/huespedes.service.js';
 import { registrarConsumo } from '../../services/consumos.service.js';
 import { login } from '../../services/auth.service.js';
 import { actualizarUmbralInventario, listarAlertasInventario, registrarConsumoInventario } from '../../services/inventario.service.js';
@@ -11,6 +12,11 @@ import { EntidadNoProcesableError } from '../../utils/errors.js';
 
 jest.mock('../../services/habitaciones.service.js', () => ({
   cambiarEstadoHabitacion: jest.fn(),
+  listarHabitaciones: jest.fn(),
+}));
+
+jest.mock('../../services/huespedes.service.js', () => ({
+  buscarHuespedes: jest.fn(),
 }));
 
 jest.mock('../../services/consumos.service.js', () => ({
@@ -53,6 +59,21 @@ describe('Integracion HU-B07 a HU-B12', () => {
       .send({ estado: 'limpieza' })
       .expect(200)
       .expect((res) => expect(res.body.estado_nuevo).toBe('limpieza'));
+  });
+
+  test('GET /huespedes permite buscar huespedes para selectores del frontend', () => {
+    buscarHuespedes.mockResolvedValue({
+      data: [{ id_huesped: 1, nombre_completo: 'Sofia Torres', email: 'huesped1@grandstay.com' }],
+      total: 1,
+    });
+
+    return request(app)
+      .get('/huespedes?buscar=Sofia')
+      .set('Authorization', `Bearer ${token('Recepcionista')}`)
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.data[0].nombre_completo).toBe('Sofia Torres');
+      });
   });
 
   test('POST /consumos retorna 422 si la habitacion no esta ocupada', () => {

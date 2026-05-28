@@ -7,13 +7,13 @@
 --  CREDENCIALES DE ACCESO
 --  Email                            | Contraseña  | Rol
 --  ---------------------------------|-------------|--------------------
---  admin@grandstay.com              | Admin2024!  | Administrador
---  recep1@grandstay.com             | Recep2024!  | Recepcionista
---  recep2@grandstay.com             | Recep2024!  | Recepcionista
---  limpieza1@grandstay.com          | Limp2024!   | Personal Limpieza
---  tecnico1@grandstay.com           | Tec2024!    | Servicio Tecnico
---  huesped1@grandstay.com           | Hues2024!   | Huesped
---  huesped2@grandstay.com           | Hues2024!   | Huesped
+--  admin@grandstay.com              | ver canal interno | Administrador
+--  recep1@grandstay.com             | ver canal interno | Recepcionista
+--  recep2@grandstay.com             | ver canal interno | Recepcionista
+--  limpieza1@grandstay.com          | ver canal interno | Personal Limpieza
+--  tecnico1@grandstay.com           | ver canal interno | Servicio Tecnico
+--  huesped1@grandstay.com           | ver canal interno | Huesped
+--  huesped2@grandstay.com           | ver canal interno | Huesped
 --
 --  password_hash = bcrypt coste 12
 -- =============================================================

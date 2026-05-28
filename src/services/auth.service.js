@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { query, getConnection } from '../utils/db.js';
 import { AccesoDenegadoError, NoAutorizadoError, ParametrosInvalidosError } from '../utils/errors.js';
+import { getJwtSecret } from '../config/env.js';
 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN ?? '8h';
 const TOTP_INTERVAL_SECONDS = 30;
@@ -161,7 +162,7 @@ export async function login({ usuario, password, otp }) {
       id_admin: encontrado.id_admin ?? null,
       id_huesped: encontrado.id_huesped ?? null,
     },
-    process.env.JWT_SECRET,
+    getJwtSecret(),
     { expiresIn: JWT_EXPIRES_IN },
   );
 
@@ -254,7 +255,7 @@ export async function registro({ nombre, apellido, email, password, telefono, nu
         id_admin: null,
         id_huesped,
       },
-      process.env.JWT_SECRET,
+      getJwtSecret(),
       { expiresIn: JWT_EXPIRES_IN },
     );
 

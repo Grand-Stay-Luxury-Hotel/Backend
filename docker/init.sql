@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     activo BOOLEAN DEFAULT TRUE,
     nombre VARCHAR(100) NOT NULL,
     apellido VARCHAR(100) NOT NULL,
+    ultimo_acceso TIMESTAMP NULL,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_rol) REFERENCES roles(id_rol)
 ) ENGINE=InnoDB;
@@ -73,7 +74,7 @@ CREATE TABLE IF NOT EXISTS habitaciones (
     id_tipo INT NOT NULL,
     numero VARCHAR(10) NOT NULL UNIQUE,
     piso INT DEFAULT 1,
-    estado VARCHAR(20) DEFAULT 'disponible',
+    estado ENUM('disponible', 'ocupada', 'mantenimiento', 'limpieza', 'bloqueada') DEFAULT 'disponible',
     activo BOOLEAN DEFAULT TRUE,
     FOREIGN KEY (id_tipo) REFERENCES tipos_habitacion(id_tipo)
 ) ENGINE=InnoDB;
@@ -99,7 +100,7 @@ CREATE TABLE IF NOT EXISTS reservas (
     id_habitacion INT NOT NULL,
     fecha_entrada DATE NOT NULL,
     fecha_salida DATE NOT NULL,
-    estado VARCHAR(20) DEFAULT 'confirmada',
+    estado ENUM('pendiente', 'confirmada', 'en_curso', 'cancelada', 'no_show', 'completada') DEFAULT 'confirmada',
     canal_reserva VARCHAR(20) DEFAULT 'web',
     monto_pagado DECIMAL(10, 2) DEFAULT 0,
     observaciones TEXT,
@@ -109,6 +110,26 @@ CREATE TABLE IF NOT EXISTS reservas (
     FOREIGN KEY (id_tipo_habitacion) REFERENCES tipos_habitacion(id_tipo),
     FOREIGN KEY (id_habitacion) REFERENCES habitaciones(id_habitacion)
 ) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS especialidades_tecnicas (
+    id_especialidad INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL UNIQUE,
+    descripcion TEXT
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS servicio_tecnico (
+    id_tecnico INT AUTO_INCREMENT PRIMARY KEY,
+    id_usuario INT NOT NULL UNIQUE,
+    id_especialidad INT,
+    nivel_certificacion VARCHAR(50),
+    turno VARCHAR(50),
+    fecha_ingreso DATE,
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario),
+    FOREIGN KEY (id_especialidad) REFERENCES especialidades_tecnicas(id_especialidad)
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_reservas_habitacion_fechas ON reservas(id_habitacion, fecha_entrada, fecha_salida, estado);
+CREATE INDEX idx_reservas_huesped ON reservas(id_huesped);
 
 -- Tokens de Pago
 CREATE TABLE IF NOT EXISTS tokens_pago (
@@ -144,7 +165,7 @@ CREATE TABLE IF NOT EXISTS checkout (
     id_checkin INT NOT NULL,
     id_recepcionista INT,
     total_cobrado DECIMAL(10, 2) NOT NULL,
-    estado_habitacion VARCHAR(20) DEFAULT 'bueno',
+    estado_habitacion ENUM('bueno', 'limpieza', 'mantenimiento') DEFAULT 'bueno',
     cargos_adicionales DECIMAL(10, 2) DEFAULT 0,
     observaciones TEXT,
     fecha_salida TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -158,10 +179,14 @@ CREATE TABLE IF NOT EXISTS facturas (
     id_checkin INT NOT NULL,
     id_checkout INT NOT NULL,
     numero_factura VARCHAR(50) NOT NULL UNIQUE,
+    fecha_emision TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     subtotal DECIMAL(10, 2) NOT NULL,
+    impuesto_pct DECIMAL(5, 2) DEFAULT 19.00,
     impuestos DECIMAL(10, 2) NOT NULL,
+    descuentos DECIMAL(10, 2) DEFAULT 0,
     total DECIMAL(10, 2) NOT NULL,
     metodo_pago VARCHAR(50) DEFAULT 'tarjeta_credito',
+    moneda CHAR(3) DEFAULT 'COP',
     estado_pago VARCHAR(20) DEFAULT 'pagada',
     email_enviado BOOLEAN DEFAULT FALSE,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -188,12 +213,15 @@ CREATE TABLE IF NOT EXISTS consumo_servicios (
     cantidad INT NOT NULL,
     precio_aplicado DECIMAL(10, 2) NOT NULL,
     subtotal DECIMAL(10, 2) NOT NULL,
+    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     estado VARCHAR(20) DEFAULT 'completado',
+    id_factura INT,
     notas TEXT,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_reserva) REFERENCES reservas(id_reserva),
     FOREIGN KEY (id_habitacion) REFERENCES habitaciones(id_habitacion),
-    FOREIGN KEY (id_servicio) REFERENCES servicios_adicionales(id_servicio)
+    FOREIGN KEY (id_servicio) REFERENCES servicios_adicionales(id_servicio),
+    FOREIGN KEY (id_factura) REFERENCES facturas(id_factura)
 ) ENGINE=InnoDB;
 
 -- Insumos de Limpieza
@@ -226,13 +254,41 @@ CREATE TABLE IF NOT EXISTS consumo_insumos (
 CREATE TABLE IF NOT EXISTS notificaciones (
     id_notificacion INT AUTO_INCREMENT PRIMARY KEY,
     id_usuario_dest INT,
+    id_reserva INT,
+    id_huesped INT,
     tipo VARCHAR(50) NOT NULL,
     evento VARCHAR(50) NOT NULL,
     destinatario VARCHAR(100),
     asunto VARCHAR(255) NOT NULL,
     cuerpo TEXT NOT NULL,
     estado VARCHAR(20) DEFAULT 'pendiente',
+    fecha_envio TIMESTAMP NULL,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS items_factura (
+    id_item INT AUTO_INCREMENT PRIMARY KEY,
+    id_factura INT NOT NULL,
+    concepto VARCHAR(255) NOT NULL,
+    categoria VARCHAR(50) NOT NULL,
+    cantidad DECIMAL(10, 2) NOT NULL DEFAULT 1,
+    precio_unitario DECIMAL(10, 2) NOT NULL,
+    subtotal DECIMAL(10, 2) NOT NULL,
+    fecha DATE DEFAULT (CURRENT_DATE),
+    FOREIGN KEY (id_factura) REFERENCES facturas(id_factura),
+    INDEX idx_items_factura_categoria (id_factura, categoria)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS reportes (
+    id_reporte INT AUTO_INCREMENT PRIMARY KEY,
+    generado_por INT,
+    tipo_reporte VARCHAR(50) NOT NULL,
+    titulo VARCHAR(150) NOT NULL,
+    periodo_inicio DATE,
+    periodo_fin DATE,
+    formato VARCHAR(20) DEFAULT 'JSON',
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (generado_por) REFERENCES usuarios(id_usuario)
 ) ENGINE=InnoDB;
 
 -- Log de Auditoria

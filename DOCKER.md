@@ -4,49 +4,31 @@
 
 - Docker 20.10+
 - Docker Compose v2+
+- Archivo `.env` local basado en `.env.example`
 
-## Estructura
+## Modos De Ejecucion
 
-```
-Backend/
-├── Dockerfile              # Multi-stage build optimizado
-├── docker-compose.yml      # Backend + MySQL con seed
-├── .dockerignore
-├── docker/
-│   ├── init.sql           # Esquema de base de datos
-│   └── seed.sql           # Datos de prueba
-└── ...
-```
+### Backend Con Base De Datos Aiven
 
-## Uso
-
-### Desarrollo standalone (solo backend + MySQL)
+Usa este modo cuando `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` y `DB_SSL_MODE=REQUIRED` apuntan a Aiven.
 
 ```bash
-# Iniciar servicios
-docker compose up -d
-
-# Ver logs
-docker compose logs -f backend
-
-# Ver logs de MySQL
-docker compose logs -f mysql
-
-# Detener servicios
-docker compose down
-
-# Detener y eliminar volumen de datos
-docker compose down -v
+docker compose up -d --build grandstay-backend
 ```
 
-### Acceso a la base de datos
+### Backend Con MySQL Local
+
+Usa este modo si quieres levantar tambien el contenedor MySQL local del proyecto.
 
 ```bash
-# Conectar al container MySQL
-docker exec -it grandstay-mysql mysql -u grandstay_user -pGrandStay2025! grandstay_db
+docker compose --profile local-db up -d --build
+```
 
-# Ejecutar query
-docker exec -it grandstay-mysql mysql -u grandstay_user -pGrandStay2025! grandstay_db -e "SELECT * FROM usuarios;"
+## Acceso A MySQL Local
+
+```bash
+docker exec -it grandstay-mysql mysql -u grandstay_user -p grandstay_db
+docker exec -it grandstay-mysql mysql -u grandstay_user -p grandstay_db -e "SELECT id_usuario, email FROM usuarios;"
 ```
 
 ## Endpoints
@@ -55,20 +37,17 @@ docker exec -it grandstay-mysql mysql -u grandstay_user -pGrandStay2025! grandst
 - Health Check: http://localhost:4000/health
 - Swagger UI: http://localhost:4000/api-docs
 
-## Credenciales de Prueba
+## Variables Criticas
 
-| Rol | Email | Password |
-|-----|-------|----------|
-| Admin | admin@grandstay.com | Password123! |
-| Recepcion | recepcion@grandstay.com | Password123! |
-| Limpieza | limpieza@grandstay.com | Password123! |
-| Huesped | huesped1@grandstay.com | Password123! |
+| Variable | Uso |
+| --- | --- |
+| DB_HOST | Host MySQL local o Aiven |
+| DB_PORT | Puerto MySQL |
+| DB_NAME | Base de datos |
+| DB_USER | Usuario de conexion |
+| DB_PASSWORD | Password de conexion |
+| DB_SSL_MODE | `REQUIRED` para Aiven, `DISABLED` local |
+| JWT_SECRET | Secreto JWT, minimo 32 caracteres |
+| MYSQL_ROOT_PASSWORD | Solo para MySQL local con perfil `local-db` |
 
-## Variables de Entorno
-
-| Variable | Default | Descripcion |
-|----------|---------|-------------|
-| DB_PASSWORD | GrandStay2025! | Password de MySQL |
-| JWT_SECRET | clave_desarrollo... | Secreto para JWT |
-| JWT_EXPIRES_IN | 8h | Expiracion del token |
-| MYSQL_ROOT_PASSWORD | root_password | Password root MySQL |
+No subir archivos `.env` ni credenciales reales al repositorio.

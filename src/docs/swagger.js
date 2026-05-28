@@ -38,7 +38,7 @@ export const swaggerSpec = swaggerJSDoc({
           required: ['usuario', 'password'],
           properties: {
             usuario: { type: 'string', format: 'email', example: 'recep1@grandstay.com' },
-            password: { type: 'string', example: 'Recep2024!' },
+            password: { type: 'string', example: 'ClaveSegura123*' },
             otp: { type: 'string', example: '123456' },
           },
         },
@@ -124,6 +124,7 @@ export const swaggerSpec = swaggerJSDoc({
     tags: [
       { name: 'Salud' },
       { name: 'Autenticacion' },
+      { name: 'Huespedes' },
       { name: 'Habitaciones' },
       { name: 'Reservas' },
       { name: 'Check-in' },
@@ -191,6 +192,40 @@ export const swaggerSpec = swaggerJSDoc({
           },
         },
       },
+      '/huespedes': {
+        get: {
+          tags: ['Huespedes'],
+          summary: 'Busca huespedes para selectores del frontend',
+          security: bearerAuth,
+          parameters: [
+            { name: 'buscar', in: 'query', schema: { type: 'string' }, example: 'Sofia' },
+            { name: 'limite', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100 }, example: 20 },
+          ],
+          responses: {
+            200: { description: 'Huespedes encontrados' },
+            401: { $ref: '#/components/responses/Unauthorized' },
+            403: { $ref: '#/components/responses/Forbidden' },
+          },
+        },
+      },
+      '/habitaciones': {
+        get: {
+          tags: ['Habitaciones'],
+          summary: 'Lista habitaciones para selectores y tableros operativos',
+          security: bearerAuth,
+          parameters: [
+            { name: 'buscar', in: 'query', schema: { type: 'string' }, example: '201' },
+            { name: 'estado', in: 'query', schema: { type: 'string', enum: ['disponible', 'ocupada', 'mantenimiento', 'limpieza', 'bloqueada'] }, example: 'ocupada' },
+            { name: 'conReservaActiva', in: 'query', schema: { type: 'boolean' }, example: true },
+            { name: 'limite', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100 }, example: 50 },
+          ],
+          responses: {
+            200: { description: 'Habitaciones encontradas' },
+            401: { $ref: '#/components/responses/Unauthorized' },
+            403: { $ref: '#/components/responses/Forbidden' },
+          },
+        },
+      },
       '/habitaciones/{id}/estado': {
         patch: {
           tags: ['Habitaciones'],
@@ -210,6 +245,22 @@ export const swaggerSpec = swaggerJSDoc({
         },
       },
       '/reservas': {
+        get: {
+          tags: ['Reservas'],
+          summary: 'Lista reservas por codigo, huesped, documento o habitacion',
+          security: bearerAuth,
+          parameters: [
+            { name: 'buscar', in: 'query', schema: { type: 'string' }, example: 'GS-2026' },
+            { name: 'estado', in: 'query', schema: { type: 'string' }, example: 'confirmada' },
+            { name: 'operacion', in: 'query', schema: { type: 'string', enum: ['checkin', 'checkout', 'cancelacion'] }, example: 'checkin' },
+            { name: 'limite', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100 }, example: 50 },
+          ],
+          responses: {
+            200: { description: 'Reservas encontradas' },
+            401: { $ref: '#/components/responses/Unauthorized' },
+            403: { $ref: '#/components/responses/Forbidden' },
+          },
+        },
         post: {
           tags: ['Reservas'],
           summary: 'Crea una reserva con anticipo',

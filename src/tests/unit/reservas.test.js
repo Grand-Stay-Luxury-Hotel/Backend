@@ -1,5 +1,5 @@
 // src/tests/unit/reservas.test.js
-import { calcularPenalizacion } from '../../services/reservas.service.js';
+import { calcularPenalizacion, validarReserva } from '../../services/reservas.service.js';
 import { autorizarPago, reembolsarPago } from '../../services/pasarela.service.js';
 
 describe('HU-B02 y HU-B04 reservas.service', () => {
@@ -26,6 +26,39 @@ describe('HU-B02 y HU-B04 reservas.service', () => {
   test('no persiste la reserva si la pasarela falla', async () => {
     await expect(autorizarPago({ tokenPago: 'fail_pago', monto: 200000 }))
       .rejects.toHaveProperty('codigo', 'PAGO_RECHAZADO');
+  });
+
+  test('rechaza reserva con fecha de entrada posterior o igual a salida', () => {
+    expect(() => validarReserva({
+      id_huesped: 1,
+      id_habitacion: 1,
+      fecha_entrada: '2099-06-05',
+      fecha_salida: '2099-06-05',
+      token_pago: 'tok_test',
+      monto_anticipo: 1000,
+    })).toThrow('La fecha de entrada debe ser anterior');
+  });
+
+  test('rechaza reserva con fecha de entrada en el pasado', () => {
+    expect(() => validarReserva({
+      id_huesped: 1,
+      id_habitacion: 1,
+      fecha_entrada: '2000-01-01',
+      fecha_salida: '2000-01-02',
+      token_pago: 'tok_test',
+      monto_anticipo: 1000,
+    })).toThrow('La fecha de entrada no puede estar en el pasado');
+  });
+
+  test('rechaza anticipo negativo', () => {
+    expect(() => validarReserva({
+      id_huesped: 1,
+      id_habitacion: 1,
+      fecha_entrada: '2099-06-01',
+      fecha_salida: '2099-06-02',
+      token_pago: 'tok_test',
+      monto_anticipo: -1,
+    })).toThrow('El monto de anticipo no puede ser negativo');
   });
 
   test('calcula penalización correcta para cancelación > 7 días', () => {

@@ -1,11 +1,14 @@
 // src/index.js
 import dotenv from 'dotenv';
 import { createApp } from './app.js';
+import { validarVariablesCriticas } from './config/env.js';
 
 dotenv.config();
 
-if (!process.env.JWT_SECRET) {
-  console.error('FATAL: JWT_SECRET no está definido. Configure la variable de entorno.');
+try {
+  validarVariablesCriticas();
+} catch (error) {
+  console.error(`FATAL: ${error.message}`);
   process.exit(1);
 }
 

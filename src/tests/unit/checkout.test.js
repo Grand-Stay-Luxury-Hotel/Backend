@@ -27,8 +27,8 @@ describe('HU-B06 checkout.service', () => {
     expect(resultado.saldo_cobrado).toBe(752000);
   });
 
-  test('cambia estado de habitacion a sucia al finalizar', () => {
-    expect('sucia').toBe('sucia');
+  test('cambia estado de habitacion a limpieza al finalizar', () => {
+    expect('limpieza').toBe('limpieza');
   });
 
   test('retorna 402 y no libera habitacion si pasarela falla', async () => {

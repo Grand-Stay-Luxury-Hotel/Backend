@@ -1,5 +1,5 @@
 // src/controllers/reservas.controller.js
-import { cancelarReserva, crearReserva } from '../services/reservas.service.js';
+import { cancelarReserva, crearReserva, listarReservas } from '../services/reservas.service.js';
 
 function crearContexto(req) {
   return {
@@ -16,6 +16,15 @@ export async function postReserva(req, res, next) {
   try {
     const resultado = await crearReserva(req.body, crearContexto(req));
     res.status(201).json(resultado);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getReservas(req, res, next) {
+  try {
+    const resultado = await listarReservas(req.query);
+    res.status(200).json(resultado);
   } catch (error) {
     next(error);
   }

@@ -1,6 +1,7 @@
 // src/middleware/auth.middleware.js
 import jwt from 'jsonwebtoken';
 import { AccesoDenegadoError, NoAutorizadoError } from '../utils/errors.js';
+import { getJwtSecret } from '../config/env.js';
 
 export async function verifyToken(req, _res, next) {
   try {
@@ -10,7 +11,7 @@ export async function verifyToken(req, _res, next) {
     }
 
     const token = header.replace('Bearer ', '').trim();
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    const payload = jwt.verify(token, getJwtSecret());
     req.user = {
       id: payload.id ?? payload.id_usuario,
       id_usuario: payload.id_usuario ?? payload.id,
