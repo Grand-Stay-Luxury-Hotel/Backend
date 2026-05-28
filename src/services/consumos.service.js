@@ -47,7 +47,7 @@ export async function registrarConsumo(payload, contexto = {}) {
         FROM habitaciones h
         LEFT JOIN reservas r
           ON r.id_habitacion = h.id_habitacion
-          AND r.estado = 'confirmada'
+          AND r.estado = 'en_curso'
         LEFT JOIN checkin ci
           ON ci.id_reserva = r.id_reserva
         LEFT JOIN checkout co
