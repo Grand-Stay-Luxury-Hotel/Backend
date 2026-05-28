@@ -1,20 +1,20 @@
 import { validarTransicionHabitacion } from '../../services/habitaciones.service.js';
 
 describe('HU-B07 habitaciones.service', () => {
-  test('permite transicion de ocupada a sucia para recepcion', () => {
-    const resultado = validarTransicionHabitacion('ocupada', 'sucia', 'Recepcionista');
-    expect(resultado).toEqual({ actual: 'ocupada', nuevo: 'sucia', bloqueaReservas: true });
+  test('permite transicion de ocupada a limpieza para recepcion', () => {
+    const resultado = validarTransicionHabitacion('ocupada', 'limpieza', 'Recepcionista');
+    expect(resultado).toEqual({ actual: 'ocupada', nuevo: 'limpieza', bloqueaReservas: true });
   });
 
-  test('permite transicion de sucia a limpieza para personal de limpieza', () => {
-    const resultado = validarTransicionHabitacion('sucia', 'En Limpieza', 'PersonalLimpieza');
-    expect(resultado).toEqual({ actual: 'sucia', nuevo: 'limpieza', bloqueaReservas: true });
+  test('permite transicion de limpieza a disponible para personal de limpieza', () => {
+    const resultado = validarTransicionHabitacion('limpieza', 'disponible', 'PersonalLimpieza');
+    expect(resultado).toEqual({ actual: 'limpieza', nuevo: 'disponible', bloqueaReservas: false });
   });
 
-  test('rechaza transicion de limpieza ejecutada por recepcion', () => {
+  test('rechaza liberacion de limpieza ejecutada por recepcion', () => {
     let errorLanzado;
     try {
-      validarTransicionHabitacion('sucia', 'limpieza', 'Recepcionista');
+      validarTransicionHabitacion('limpieza', 'disponible', 'Recepcionista');
     } catch (error) {
       errorLanzado = error;
     }
@@ -27,7 +27,7 @@ describe('HU-B07 habitaciones.service', () => {
   });
 
   test('rechaza estados desconocidos', () => {
-    expect(() => validarTransicionHabitacion('fuera_servicio', 'disponible', 'Administrador'))
+    expect(() => validarTransicionHabitacion('sucia', 'disponible', 'Administrador'))
       .toThrow('Estado de habitacion invalido');
   });
 

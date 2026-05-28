@@ -2,13 +2,14 @@
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { jest } from '@jest/globals';
-import { crearReserva, cancelarReserva } from '../../services/reservas.service.js';
+import { crearReserva, cancelarReserva, listarReservas } from '../../services/reservas.service.js';
 import { createApp } from '../../app.js';
 import { OverbookingError, PagoRechazadoError, ReservaNoEncontradaError } from '../../utils/errors.js';
 
 jest.mock('../../services/reservas.service.js', () => ({
   crearReserva: jest.fn(),
   cancelarReserva: jest.fn(),
+  listarReservas: jest.fn(),
 }));
 
 const app = createApp();
@@ -23,6 +24,20 @@ describe('Integración HU-B02 y HU-B04 reservas', () => {
     process.env.JWT_SECRET = secreto;
     crearReserva.mockReset();
     cancelarReserva.mockReset();
+    listarReservas.mockReset();
+  });
+
+  test('GET /reservas permite listar reservas para selectores del frontend', () => {
+    listarReservas.mockResolvedValue({
+      data: [{ id_reserva: 42, codigo_confirmacion: 'GS-42', huesped_nombre: 'Sofia Torres' }],
+      total: 1,
+    });
+
+    return request(app)
+      .get('/reservas?buscar=Sofia')
+      .set('Authorization', `Bearer ${token('Recepcionista')}`)
+      .expect(200)
+      .expect((res) => expect(res.body.data[0].codigo_confirmacion).toBe('GS-42'));
   });
 
   test('POST /reservas con datos válidos retorna 201', () => {

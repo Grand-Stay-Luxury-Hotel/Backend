@@ -14,6 +14,7 @@ export default {
     'src/services/consumos.service.js',
     'src/services/checkout.service.js',
     'src/services/habitaciones.service.js',
+    'src/services/huespedes.service.js',
     'src/services/inventario.service.js',
     'src/services/reportes.service.js',
     'src/services/reservas.service.js',

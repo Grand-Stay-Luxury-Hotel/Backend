@@ -1,5 +1,5 @@
 // src/controllers/habitaciones.controller.js
-import { cambiarEstadoHabitacion } from '../services/habitaciones.service.js';
+import { cambiarEstadoHabitacion, listarHabitaciones } from '../services/habitaciones.service.js';
 import { ParametrosInvalidosError } from '../utils/errors.js';
 
 function crearContexto(req) {
@@ -12,7 +12,16 @@ function crearContexto(req) {
   };
 }
 
-const ESTADOS_VALIDOS = ['disponible', 'ocupada', 'mantenimiento', 'limpieza'];
+const ESTADOS_VALIDOS = ['disponible', 'ocupada', 'mantenimiento', 'limpieza', 'bloqueada'];
+
+export async function getHabitaciones(req, res, next) {
+  try {
+    const resultado = await listarHabitaciones(req.query);
+    res.status(200).json(resultado);
+  } catch (error) {
+    next(error);
+  }
+}
 
 export async function patchEstadoHabitacion(req, res, next) {
   try {

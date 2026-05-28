@@ -1,5 +1,5 @@
 // src/services/reservas.service.js
-import { getConnection } from '../utils/db.js';
+import { getConnection, query } from '../utils/db.js';
 import { AccesoDenegadoError, ParametrosInvalidosError, ReservaNoEncontradaError, ReservaEstadoInvalidoError } from '../utils/errors.js';
 import { verificarDisponibilidad } from './overbooking.service.js';
 import { autorizarPago, reembolsarPago } from './pasarela.service.js';
@@ -11,15 +11,32 @@ function generarCodigoConfirmacion() {
 }
 
 /* istanbul ignore next */
-function validarReserva(payload) {
+export function validarReserva(payload) {
   const requeridos = ['id_huesped', 'id_habitacion', 'fecha_entrada', 'fecha_salida', 'token_pago', 'monto_anticipo'];
   const faltantes = requeridos.filter((campo) => payload[campo] === undefined || payload[campo] === null || payload[campo] === '');
   if (faltantes.length > 0) {
     throw new ParametrosInvalidosError(`Campos obligatorios faltantes: ${faltantes.join(', ')}`);
   }
 
-  if (new Date(payload.fecha_entrada) >= new Date(payload.fecha_salida)) {
+  const entrada = new Date(`${payload.fecha_entrada}T00:00:00Z`);
+  const salida = new Date(`${payload.fecha_salida}T00:00:00Z`);
+  const hoy = new Date();
+  hoy.setUTCHours(0, 0, 0, 0);
+
+  if (Number.isNaN(entrada.getTime()) || Number.isNaN(salida.getTime())) {
+    throw new ParametrosInvalidosError('Las fechas deben tener formato YYYY-MM-DD');
+  }
+
+  if (entrada >= salida) {
     throw new ParametrosInvalidosError('La fecha de entrada debe ser anterior a la fecha de salida');
+  }
+
+  if (entrada < hoy) {
+    throw new ParametrosInvalidosError('La fecha de entrada no puede estar en el pasado');
+  }
+
+  if (Number(payload.monto_anticipo) < 0) {
+    throw new ParametrosInvalidosError('El monto de anticipo no puede ser negativo');
   }
 }
 
@@ -39,6 +56,91 @@ export function calcularPenalizacion(fechaEntrada, montoPagado, fechaActual = ne
   const montoPenalizacion = Number(((montoPagado * porcentaje) / 100).toFixed(2));
   const montoReembolso = Number((montoPagado - montoPenalizacion).toFixed(2));
   return { porcentaje, montoPenalizacion, montoReembolso };
+}
+
+function normalizarLimite(limite = 50) {
+  const valor = Number(limite);
+  if (!Number.isInteger(valor) || valor < 1 || valor > 100) {
+    throw new ParametrosInvalidosError('El limite debe ser un numero entero entre 1 y 100');
+  }
+  return valor;
+}
+
+function estadosPorOperacion(operacion) {
+  const operacionNormalizada = String(operacion ?? '').trim().toLowerCase();
+  if (operacionNormalizada === 'checkin') return ['confirmada'];
+  if (operacionNormalizada === 'checkout') return ['en_curso'];
+  if (operacionNormalizada === 'cancelacion') return ['pendiente', 'confirmada', 'en_curso'];
+  return null;
+}
+
+export async function listarReservas({ buscar = '', estado = null, operacion = null, limite = 50 } = {}) {
+  try {
+    const estadosOperacion = estadosPorOperacion(operacion);
+    const estados = estadosOperacion ?? (estado ? [String(estado).trim()] : null);
+    const patronBusqueda = String(buscar ?? '').trim();
+
+    const reservas = await query(
+      `
+        SELECT
+          r.id_reserva,
+          r.codigo_confirmacion,
+          r.estado,
+          r.fecha_entrada,
+          r.fecha_salida,
+          r.monto_pagado,
+          r.canal_reserva,
+          r.id_huesped,
+          CONCAT(hu.nombres, ' ', hu.apellidos) AS huesped_nombre,
+          hu.email AS huesped_email,
+          hu.num_documento AS huesped_documento,
+          r.id_habitacion,
+          h.numero AS numero_habitacion,
+          th.nombre AS tipo_habitacion,
+          ci.id_checkin
+        FROM reservas r
+        JOIN huespedes hu ON hu.id_huesped = r.id_huesped
+        JOIN habitaciones h ON h.id_habitacion = r.id_habitacion
+        JOIN tipos_habitacion th ON th.id_tipo = r.id_tipo_habitacion
+        LEFT JOIN checkin ci ON ci.id_reserva = r.id_reserva
+        WHERE
+          (:estadosCsv IS NULL OR FIND_IN_SET(r.estado, :estadosCsv) > 0)
+          AND (
+            :buscar = ''
+            OR r.codigo_confirmacion LIKE :buscarLike
+            OR CAST(r.id_reserva AS CHAR) = :buscarExacto
+            OR h.numero LIKE :buscarLike
+            OR hu.nombres LIKE :buscarLike
+            OR hu.apellidos LIKE :buscarLike
+            OR CONCAT(hu.nombres, ' ', hu.apellidos) LIKE :buscarLike
+            OR hu.email LIKE :buscarLike
+            OR hu.num_documento LIKE :buscarLike
+          )
+        ORDER BY r.fecha_entrada DESC, r.id_reserva DESC
+        LIMIT :limite
+      `,
+      {
+        estadosCsv: estados ? estados.join(',') : null,
+        buscar: patronBusqueda,
+        buscarLike: `%${patronBusqueda}%`,
+        buscarExacto: patronBusqueda,
+        limite: normalizarLimite(limite),
+      },
+    );
+
+    return {
+      data: reservas,
+      total: reservas.length,
+      filtros: {
+        buscar: patronBusqueda || null,
+        estado: estado || null,
+        operacion: operacion || null,
+      },
+      mensaje: reservas.length === 0 ? 'No se encontraron reservas con los criterios indicados' : undefined,
+    };
+  } catch (error) {
+    throw error;
+  }
 }
 
 /* istanbul ignore next */

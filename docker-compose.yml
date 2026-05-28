@@ -8,20 +8,21 @@ services:
     environment:
       NODE_ENV: production
       PORT: 4000
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_NAME: grandstay_db
-      DB_USER: grandstay_user
-      DB_PASSWORD: ${DB_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
+      DB_HOST: ${DB_HOST:?DB_HOST requerido}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_NAME: ${DB_NAME:?DB_NAME requerido}
+      DB_USER: ${DB_USER:?DB_USER requerido}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD requerido}
+      DB_SSL_MODE: ${DB_SSL_MODE:-DISABLED}
+      DB_SSL_REJECT_UNAUTHORIZED: ${DB_SSL_REJECT_UNAUTHORIZED:-true}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET requerido}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      ADMIN_OTP: ${ADMIN_OTP:-123456}
+      ADMIN_OTP_SECRET: ${ADMIN_OTP_SECRET:-}
       PAYMENT_GATEWAY_URL: ${PAYMENT_GATEWAY_URL:-https://api.pasarela-mock.com}
       PAYMENT_GATEWAY_KEY: ${PAYMENT_GATEWAY_KEY:-mock_key}
     ports:
       - "4000:4000"
-    depends_on:
-      mysql:
-        condition: service_healthy
     networks:
       - grandstay-net
     healthcheck:
@@ -32,14 +33,15 @@ services:
       start_period: 10s
 
   mysql:
+    profiles: ["local-db"]
     image: mysql:8.0
     container_name: grandstay-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: grandstay_db
-      MYSQL_USER: grandstay_user
-      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD requerido para MySQL local}
+      MYSQL_DATABASE: ${DB_NAME:-grandstay_db}
+      MYSQL_USER: ${DB_USER:-grandstay_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD requerido}
     ports:
       - "3306:3306"
     volumes:

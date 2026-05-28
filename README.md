@@ -211,8 +211,17 @@ Authorization: Bearer <token>
 
 | Método | Ruta                                  | Auth | Roles permitidos                |
 |--------|---------------------------------------|------|---------------------------------|
+| GET    | `/habitaciones`                       | Sí   | Recepcionista, Administrador, PersonalLimpieza |
 | GET    | `/habitaciones/disponibilidad`        | Sí   | Todos                           |
 | PATCH  | `/habitaciones/:id/estado`            | Sí   | Recepcionista, Administrador    |
+
+**Query params — listado operativo:**
+
+```
+buscar=201&estado=ocupada&conReservaActiva=true&limite=50
+```
+
+Uso frontend: mostrar `numero_habitacion`, `tipo_nombre`, `estado`, `huesped_nombre` y enviar internamente `id_habitacion`.
 
 **Query params — disponibilidad:**
 
@@ -235,8 +244,37 @@ Estados válidos: `disponible` · `ocupada` · `mantenimiento` · `limpieza` · 
 
 | Método | Ruta             | Auth | Roles permitidos                          |
 |--------|------------------|------|-------------------------------------------|
+| GET    | `/reservas`      | Sí   | Recepcionista, Administrador              |
 | POST   | `/reservas`      | Sí   | Recepcionista, Administrador, Huesped     |
 | DELETE | `/reservas/:id`  | Sí   | Recepcionista, Administrador              |
+
+**Query params — listado operativo:**
+
+```
+buscar=Sofia&estado=confirmada&operacion=checkin&limite=50
+```
+
+Valores útiles de `operacion`:
+
+- `checkin`: reservas `confirmada`.
+- `checkout`: reservas `en_curso`.
+- `cancelacion`: reservas `pendiente`, `confirmada` o `en_curso`.
+
+Uso frontend: mostrar `codigo_confirmacion`, `huesped_nombre`, `numero_habitacion`, `fecha_entrada`, `fecha_salida` y enviar internamente `id_reserva`.
+
+### Huéspedes
+
+| Método | Ruta         | Auth | Roles permitidos             |
+|--------|--------------|------|------------------------------|
+| GET    | `/huespedes` | Sí   | Recepcionista, Administrador |
+
+**Query params — búsqueda:**
+
+```
+buscar=Sofia&limite=20
+```
+
+Uso frontend: mostrar `nombre_completo`, `num_documento`, `email`, `telefono` y enviar internamente `id_huesped`.
 
 ### Check-in / Check-out
 

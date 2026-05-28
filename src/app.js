@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import swaggerUi from 'swagger-ui-express';
 import authRoutes from './routes/auth.routes.js';
+import huespedesRoutes from './routes/huespedes.routes.js';
 import habitacionesRoutes from './routes/habitaciones.routes.js';
 import reservasRoutes from './routes/reservas.routes.js';
 import checkinRoutes from './routes/checkin.routes.js';
@@ -46,6 +47,7 @@ export function createApp() {
   });
 
   app.use('/auth', authRoutes);
+  app.use('/huespedes', huespedesRoutes);
   app.use('/habitaciones', habitacionesRoutes);
   app.use('/reservas', reservasRoutes);
   app.use('/checkin', checkinRoutes);

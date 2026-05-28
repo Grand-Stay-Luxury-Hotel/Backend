@@ -40,11 +40,11 @@ describe('Integracion HU-B06 check-out', () => {
 
   test('POST /checkout/:reservaId sin auth retorna 401', () => request(app).post('/checkout/42').send({}).expect(401));
 
-  test('habitacion queda en estado sucia tras checkout exitoso', () => {
+  test('habitacion queda en estado limpieza tras checkout exitoso', () => {
     registrarCheckout.mockResolvedValue({
       id_checkout: 8,
       resumen_factura: {},
-      estado_habitacion: 'sucia',
+      estado_habitacion: 'limpieza',
       notificacion_encolada: true,
     });
     return request(app)
@@ -53,7 +53,7 @@ describe('Integracion HU-B06 check-out', () => {
       .send({})
       .expect(200)
       .expect((res) => {
-        expect(res.body.estado_habitacion).toBe('sucia');
+        expect(res.body.estado_habitacion).toBe('limpieza');
         expect(res.body.notificacion_encolada).toBe(true);
       });
   });

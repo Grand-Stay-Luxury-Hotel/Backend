@@ -1,19 +1,19 @@
 // src/utils/db.js
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
+import { getDbConfig } from '../config/env.js';
 
 dotenv.config();
 
-const nombreBaseDatos = process.env.NODE_ENV === 'test'
-  ? process.env.DB_NAME_TEST
-  : process.env.DB_NAME;
+const dbConfig = getDbConfig();
 
 export const pool = mysql.createPool({
-  host: process.env.DB_HOST ?? 'localhost',
-  port: Number(process.env.DB_PORT ?? 3306),
-  database: nombreBaseDatos ?? 'grandstay_db',
-  user: process.env.DB_USER ?? 'root',
-  password: process.env.DB_PASSWORD ?? '',
+  host: dbConfig.host,
+  port: dbConfig.port,
+  database: dbConfig.database,
+  user: dbConfig.user,
+  password: dbConfig.password,
+  ssl: dbConfig.ssl,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,

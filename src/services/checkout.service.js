@@ -152,7 +152,7 @@ export async function registrarCheckout(idReserva, contexto = {}) {
         INSERT INTO checkout
           (id_checkin, id_recepcionista, total_cobrado, estado_habitacion, cargos_adicionales, observaciones)
         VALUES
-          (:idCheckin, :idRecepcionista, :totalCobrado, 'sucia', :cargosAdicionales, :observaciones)
+          (:idCheckin, :idRecepcionista, :totalCobrado, 'limpieza', :cargosAdicionales, :observaciones)
       `,
       {
         idCheckin: reserva.id_checkin,
@@ -168,10 +168,10 @@ export async function registrarCheckout(idReserva, contexto = {}) {
       { idReserva },
     );
 
-    const cambioHabitacion = await cambiarEstadoHabitacionEnTransaccion(conn, reserva.id_habitacion, 'sucia', {
+    const cambioHabitacion = await cambiarEstadoHabitacionEnTransaccion(conn, reserva.id_habitacion, 'limpieza', {
       ...contexto,
       rol: contexto.rol ?? 'Recepcionista',
-      accionNegocio: 'CHECKOUT_HABITACION_SUCIA',
+      accionNegocio: 'CHECKOUT_HABITACION_LIMPIEZA',
       observaciones: contexto.observaciones ?? `Check-out reserva ${idReserva}`,
     });
 
