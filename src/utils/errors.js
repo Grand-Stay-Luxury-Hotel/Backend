@@ -58,6 +58,12 @@ export class CheckinDuplicadoError extends AppError {
   }
 }
 
+export class CheckoutDuplicadoError extends AppError {
+  constructor(mensaje = 'La reserva ya tiene un check-out registrado') {
+    super('CHECKOUT_DUPLICADO', mensaje, 409);
+  }
+}
+
 export class RecursoNoEncontradoError extends AppError {
   constructor(mensaje = 'El recurso solicitado no existe') {
     super('RECURSO_NO_ENCONTRADO', mensaje, 404);

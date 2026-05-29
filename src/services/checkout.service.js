@@ -1,10 +1,14 @@
 // src/services/checkout.service.js
 import { getConnection } from '../utils/db.js';
-import { ReservaEstadoInvalidoError, ReservaNoEncontradaError } from '../utils/errors.js';
+import { CheckoutDuplicadoError, ReservaEstadoInvalidoError, ReservaNoEncontradaError } from '../utils/errors.js';
 import { cobrarSaldo } from './pasarela.service.js';
 import { emitirFacturaGenerada } from './eventos.service.js';
 import { logAudit } from '../middleware/audit.middleware.js';
 import { cambiarEstadoHabitacionEnTransaccion } from './habitaciones.service.js';
+
+export const ESTADO_RESERVA_CHECKOUT = 'completada';
+export const ESTADO_HABITACION_POST_CHECKOUT = 'limpieza';
+export const ESTADOS_RESERVA_PERMITIDOS_CHECKOUT = new Set(['en_curso']);
 
 export function diffDias(fechaEntrada, fechaSalida) {
   const entrada = new Date(`${fechaEntrada}T00:00:00Z`);
@@ -47,6 +51,12 @@ export function crearFacturaElectronicaPayload({ numeroFactura, idFactura, idRes
   };
 }
 
+export function validarEstadoReservaParaCheckout(estado, tieneCheckin) {
+  if (!tieneCheckin || !ESTADOS_RESERVA_PERMITIDOS_CHECKOUT.has(estado)) {
+    throw new ReservaEstadoInvalidoError('Solo se puede registrar check-out para reservas con estadia activa');
+  }
+}
+
 /* istanbul ignore next */
 async function encolarEnvioFactura(conn, { reserva, numeroFactura, facturaElectronica }) {
   const [resultado] = await conn.execute(
@@ -79,9 +89,10 @@ export async function registrarCheckout(idReserva, contexto = {}) {
 
     const [[reserva]] = await conn.execute(
       `
-        SELECT r.*, ci.id_checkin, tp.token, h.email AS email_huesped, h.id_usuario AS id_usuario_huesped
+        SELECT r.*, ci.id_checkin, co.id_checkout, tp.token, h.email AS email_huesped, h.id_usuario AS id_usuario_huesped
         FROM reservas r
-        JOIN checkin ci ON ci.id_reserva = r.id_reserva
+        LEFT JOIN checkin ci ON ci.id_reserva = r.id_reserva
+        LEFT JOIN checkout co ON co.id_checkin = ci.id_checkin
         JOIN huespedes h ON h.id_huesped = r.id_huesped
         LEFT JOIN tokens_pago tp ON tp.id_reserva = r.id_reserva AND tp.vigente = TRUE
         WHERE r.id_reserva = :idReserva
@@ -94,9 +105,11 @@ export async function registrarCheckout(idReserva, contexto = {}) {
       throw new ReservaNoEncontradaError();
     }
 
-    if (reserva.estado !== 'en_curso') {
-      throw new ReservaEstadoInvalidoError('Solo se puede registrar check-out para reservas con check-in activo');
+    if (reserva.id_checkout) {
+      throw new CheckoutDuplicadoError();
     }
+
+    validarEstadoReservaParaCheckout(reserva.estado, reserva.id_checkin);
 
     const [[tarifa]] = await conn.execute(
       `
@@ -152,23 +165,24 @@ export async function registrarCheckout(idReserva, contexto = {}) {
         INSERT INTO checkout
           (id_checkin, id_recepcionista, total_cobrado, estado_habitacion, cargos_adicionales, observaciones)
         VALUES
-          (:idCheckin, :idRecepcionista, :totalCobrado, 'limpieza', :cargosAdicionales, :observaciones)
+          (:idCheckin, :idRecepcionista, :totalCobrado, :estadoHabitacion, :cargosAdicionales, :observaciones)
       `,
       {
         idCheckin: reserva.id_checkin,
         idRecepcionista: contexto.idRecepcionista,
         totalCobrado: liquidacion.total,
+        estadoHabitacion: ESTADO_HABITACION_POST_CHECKOUT,
         cargosAdicionales: liquidacion.total_consumos,
         observaciones: contexto.observaciones ?? null,
       },
     );
 
     await conn.execute(
-      "UPDATE reservas SET estado = 'completada' WHERE id_reserva = :idReserva",
-      { idReserva },
+      'UPDATE reservas SET estado = :estado WHERE id_reserva = :idReserva',
+      { estado: ESTADO_RESERVA_CHECKOUT, idReserva },
     );
 
-    const cambioHabitacion = await cambiarEstadoHabitacionEnTransaccion(conn, reserva.id_habitacion, 'limpieza', {
+    const cambioHabitacion = await cambiarEstadoHabitacionEnTransaccion(conn, reserva.id_habitacion, ESTADO_HABITACION_POST_CHECKOUT, {
       ...contexto,
       rol: contexto.rol ?? 'Recepcionista',
       accionNegocio: 'CHECKOUT_HABITACION_LIMPIEZA',
@@ -234,6 +248,7 @@ export async function registrarCheckout(idReserva, contexto = {}) {
       factura_enviada: false,
       notificacion_encolada: true,
       id_notificacion: idNotificacion,
+      estado_reserva: ESTADO_RESERVA_CHECKOUT,
       estado_habitacion: cambioHabitacion.estado_nuevo,
       mensaje: 'Check-out procesado exitosamente',
     };
