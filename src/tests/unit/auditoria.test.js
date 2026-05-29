@@ -21,6 +21,13 @@ describe('HU-B10 auditoria.service', () => {
     expect(errorLanzado.statusCode).toBe(400);
   });
 
+  test('rechaza acciones y tablas de auditoria no permitidas', () => {
+    expect(() => validarRegistroAuditoria({ accion: 'EXPORT', tablaAfectada: 'reservas' }))
+      .toThrow('accion de auditoria no valida');
+    expect(() => validarRegistroAuditoria({ accion: 'INSERT', tablaAfectada: 'tarjetas_credito' }))
+      .toThrow('tablaAfectada de auditoria no valida');
+  });
+
   test('declara politica de auditoria solo insercion con repositorio de integridad', () => {
     expect(obtenerPoliticaAuditoria()).toMatchObject({
       modo: 'solo_insercion',
@@ -38,7 +45,7 @@ describe('HU-B10 auditoria.service', () => {
       accion: 'INSERT',
       tablaAfectada: 'reservas',
       idRegistro: 10,
-      valorNuevo: { accion_negocio: 'RESERVA_CREADA' },
+      valorNuevo: { accion_negocio: 'RESERVA_CREADA', token: 'secreto' },
     });
 
     const params = conn.execute.mock.calls[0][1];
@@ -47,5 +54,6 @@ describe('HU-B10 auditoria.service', () => {
     expect(datosNuevos.hash_integridad).toHaveLength(64);
     expect(datosNuevos.timestamp_auditoria).toBeTruthy();
     expect(datosNuevos.repositorio_integridad.modo).toBe('solo_insercion');
+    expect(datosNuevos.token).toBe('[REDACTADO]');
   });
 });

@@ -49,6 +49,32 @@ export function normalizarIngresoHabitacion({ subtotalAlojamiento = 0, subtotalF
   return Number(Math.max(Number(subtotalFactura) - Number(subtotalServicios), 0).toFixed(2));
 }
 
+function esFechaIso(valor) {
+  if (typeof valor !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false;
+  const fecha = new Date(`${valor}T00:00:00Z`);
+  return !Number.isNaN(fecha.getTime()) && fecha.toISOString().slice(0, 10) === valor;
+}
+
+export function validarRangoFechas(fechaInicio = null, fechaFin = null) {
+  if (!fechaInicio && !fechaFin) {
+    return { fechaInicio: null, fechaFin: null };
+  }
+
+  if (!fechaInicio || !fechaFin) {
+    throw new ParametrosInvalidosError('fechaInicio y fechaFin deben enviarse juntas');
+  }
+
+  if (!esFechaIso(fechaInicio) || !esFechaIso(fechaFin)) {
+    throw new ParametrosInvalidosError('fechaInicio y fechaFin deben tener formato YYYY-MM-DD');
+  }
+
+  if (new Date(`${fechaInicio}T00:00:00Z`) >= new Date(`${fechaFin}T00:00:00Z`)) {
+    throw new ParametrosInvalidosError('fechaInicio debe ser anterior a fechaFin');
+  }
+
+  return { fechaInicio, fechaFin };
+}
+
 /* istanbul ignore next */
 export async function obtenerReporteOcupacion({ mes, anio, meses = 1 }) {
   const rango = construirRangoMensual({ mes, anio, meses });
@@ -63,7 +89,7 @@ export async function obtenerReporteOcupacion({ mes, anio, meses = 1 }) {
       LEFT JOIN habitaciones h ON h.id_tipo = th.id_tipo AND h.activo = TRUE
       LEFT JOIN reservas r
         ON r.id_habitacion = h.id_habitacion
-        AND r.estado IN ('confirmada', 'completada')
+        AND r.estado IN ('en_curso', 'completada')
         AND r.fecha_entrada < :fechaFin
         AND r.fecha_salida > :fechaInicio
       GROUP BY th.id_tipo, th.nombre
@@ -91,12 +117,15 @@ export async function obtenerReporteOcupacion({ mes, anio, meses = 1 }) {
 export async function obtenerReporteIngresos({ mes = null, anio = null, meses = 1, fechaInicio = null, fechaFin = null } = {}) {
   const rango = mes && anio
     ? construirRangoMensual({ mes, anio, meses })
-    : {
+    : (() => {
+      const rangoFechas = validarRangoFechas(fechaInicio, fechaFin);
+      return {
       periodo: null,
-      fechaInicio,
-      fechaFinExclusiva: fechaFin,
+      fechaInicio: rangoFechas.fechaInicio,
+      fechaFinExclusiva: rangoFechas.fechaFin,
       dias: null,
-    };
+      };
+    })();
 
   const ingresosHabitaciones = await query(
     `

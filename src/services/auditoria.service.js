@@ -3,6 +3,25 @@ import crypto from 'crypto';
 import { logAudit } from '../middleware/audit.middleware.js';
 import { ParametrosInvalidosError } from '../utils/errors.js';
 
+const ACCIONES_AUDITORIA_VALIDAS = new Set(['INSERT', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT', 'READ']);
+const TABLAS_AUDITORIA_VALIDAS = new Set([
+  'auth',
+  'checkin',
+  'checkout',
+  'consumo_insumos',
+  'consumo_servicios',
+  'facturas',
+  'habitaciones',
+  'insumos_limpieza',
+  'inventario',
+  'log_auditoria',
+  'notificaciones',
+  'reportes',
+  'reservas',
+  'tokens_pago',
+  'usuarios',
+]);
+
 export function crearHashAuditoria(registro) {
   return crypto.createHash('sha256').update(JSON.stringify(registro)).digest('hex');
 }
@@ -11,6 +30,18 @@ export function validarRegistroAuditoria({ accion, tablaAfectada }) {
   if (!accion || !tablaAfectada) {
     throw new ParametrosInvalidosError('accion y tablaAfectada son obligatorios');
   }
+
+  const accionNormalizada = String(accion).trim().toUpperCase();
+  const tablaNormalizada = String(tablaAfectada).trim();
+
+  if (!ACCIONES_AUDITORIA_VALIDAS.has(accionNormalizada)) {
+    throw new ParametrosInvalidosError('accion de auditoria no valida');
+  }
+
+  if (!TABLAS_AUDITORIA_VALIDAS.has(tablaNormalizada)) {
+    throw new ParametrosInvalidosError('tablaAfectada de auditoria no valida');
+  }
+
   return true;
 }
 
