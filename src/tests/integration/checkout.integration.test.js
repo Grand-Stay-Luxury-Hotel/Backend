@@ -13,6 +13,7 @@ import {
 } from '../../utils/errors.js';
 
 jest.mock('../../services/checkout.service.js', () => ({
+  obtenerResumenCheckout: jest.fn(),
   registrarCheckout: jest.fn(),
 }));
 

@@ -1,5 +1,14 @@
 // src/controllers/checkout.controller.js
-import { registrarCheckout } from '../services/checkout.service.js';
+import { obtenerResumenCheckout, registrarCheckout } from '../services/checkout.service.js';
+
+export async function getResumenCheckout(req, res, next) {
+  try {
+    const resultado = await obtenerResumenCheckout(req.params.reservaId);
+    res.status(200).json(resultado);
+  } catch (error) {
+    next(error);
+  }
+}
 
 export async function postCheckout(req, res, next) {
   try {

@@ -1,6 +1,11 @@
 // src/services/consumos.service.js
-import { getConnection } from '../utils/db.js';
-import { EntidadNoProcesableError, ParametrosInvalidosError, RecursoNoEncontradoError } from '../utils/errors.js';
+import { getConnection, query } from '../utils/db.js';
+import {
+  AccesoDenegadoError,
+  EntidadNoProcesableError,
+  ParametrosInvalidosError,
+  RecursoNoEncontradoError,
+} from '../utils/errors.js';
 import { logAudit } from '../middleware/audit.middleware.js';
 
 const TIPOS_CONSUMO = new Set(['restaurante', 'lavanderia', 'spa']);
@@ -30,12 +35,138 @@ export function validarTipoConsumo(tipo) {
   return normalizado;
 }
 
+export function calcularTotalConsumoDb({ cantidad, precio }) {
+  return calcularTotalConsumo({ cantidad, precio_unitario: precio });
+}
+
+function normalizarIdPositivo(valor, nombreCampo) {
+  const id = Number(valor);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ParametrosInvalidosError(`${nombreCampo} debe ser un numero entero positivo`);
+  }
+  return id;
+}
+
+function formatearConsumo(consumo) {
+  return {
+    ...consumo,
+    cantidad: Number(consumo.cantidad),
+    precio_unitario: Number(consumo.precio_unitario),
+    subtotal: Number(consumo.subtotal),
+  };
+}
+
+function resumenConsumos(consumos) {
+  return Number(consumos.reduce((total, consumo) => total + Number(consumo.subtotal), 0).toFixed(2));
+}
+
+export async function listarConsumosPorReserva(idReserva, contexto = {}) {
+  try {
+    const reservaId = normalizarIdPositivo(idReserva, 'id_reserva');
+    const [reserva] = await query(
+      `
+        SELECT id_reserva, id_huesped
+        FROM reservas
+        WHERE id_reserva = :idReserva
+        LIMIT 1
+      `,
+      { idReserva: reservaId },
+    );
+
+    if (!reserva) {
+      throw new RecursoNoEncontradoError('La reserva solicitada no existe');
+    }
+
+    if (contexto.rol === 'Huesped' && Number(reserva.id_huesped) !== Number(contexto.idHuesped)) {
+      throw new AccesoDenegadoError('No puedes consultar consumos de otra reserva');
+    }
+
+    const consumos = await query(
+      `
+        SELECT
+          cs.id_consumo_servicio AS id_consumo,
+          cs.id_reserva,
+          cs.id_habitacion,
+          h.numero_habitacion,
+          cs.id_servicio,
+          sa.nombre AS servicio_nombre,
+          sa.categoria AS tipo,
+          cs.cantidad,
+          cs.precio_aplicado AS precio_unitario,
+          cs.subtotal,
+          cs.fecha,
+          cs.estado,
+          cs.notas
+        FROM consumo_servicios cs
+        JOIN habitaciones h ON h.id_habitacion = cs.id_habitacion
+        JOIN servicios_adicionales sa ON sa.id_servicio = cs.id_servicio
+        WHERE cs.id_reserva = :idReserva
+          AND cs.estado <> 'cancelado'
+        ORDER BY cs.fecha DESC, cs.id_consumo_servicio DESC
+      `,
+      { idReserva: reservaId },
+    );
+    const data = consumos.map(formatearConsumo);
+
+    return {
+      data,
+      total: data.length,
+      total_consumos: resumenConsumos(data),
+      mensaje: data.length === 0 ? 'No hay consumos registrados para esta reserva' : undefined,
+    };
+  } catch (error) {
+    throw error;
+  }
+}
+
+export async function listarMisConsumos(contexto = {}) {
+  try {
+    const idHuesped = normalizarIdPositivo(contexto.idHuesped, 'id_huesped');
+    const consumos = await query(
+      `
+        SELECT
+          cs.id_consumo_servicio AS id_consumo,
+          cs.id_reserva,
+          r.codigo_confirmacion,
+          cs.id_habitacion,
+          h.numero_habitacion,
+          cs.id_servicio,
+          sa.nombre AS servicio_nombre,
+          sa.categoria AS tipo,
+          cs.cantidad,
+          cs.precio_aplicado AS precio_unitario,
+          cs.subtotal,
+          cs.fecha,
+          cs.estado,
+          cs.notas
+        FROM consumo_servicios cs
+        JOIN reservas r ON r.id_reserva = cs.id_reserva
+        JOIN habitaciones h ON h.id_habitacion = cs.id_habitacion
+        JOIN servicios_adicionales sa ON sa.id_servicio = cs.id_servicio
+        WHERE r.id_huesped = :idHuesped
+          AND cs.estado <> 'cancelado'
+        ORDER BY cs.fecha DESC, cs.id_consumo_servicio DESC
+      `,
+      { idHuesped },
+    );
+    const data = consumos.map(formatearConsumo);
+
+    return {
+      data,
+      total: data.length,
+      total_consumos: resumenConsumos(data),
+      mensaje: data.length === 0 ? 'No tienes consumos registrados' : undefined,
+    };
+  } catch (error) {
+    throw error;
+  }
+}
+
 /* istanbul ignore next */
 export async function registrarConsumo(payload, contexto = {}) {
   const conn = await getConnection();
   try {
     const tipo = validarTipoConsumo(payload.tipo);
-    const total = calcularTotalConsumo(payload);
     if (!payload.habitacionId || !payload.descripcion) {
       throw new ParametrosInvalidosError('habitacionId y descripcion son obligatorios');
     }
@@ -68,20 +199,23 @@ export async function registrarConsumo(payload, contexto = {}) {
 
     const [[servicio]] = await conn.execute(
       `
-        SELECT id_servicio, precio
+        SELECT id_servicio, categoria, precio
         FROM servicios_adicionales
-        WHERE categoria = :tipo
+        WHERE (:idServicio IS NULL OR id_servicio = :idServicio)
+          AND categoria = :tipo
           AND activo = TRUE
           AND disponible = TRUE
         ORDER BY id_servicio
         LIMIT 1
       `,
-      { tipo },
+      { idServicio: payload.id_servicio ?? null, tipo },
     );
 
     if (!servicio) {
       throw new RecursoNoEncontradoError(`No existe un servicio activo para la categoria ${tipo}`);
     }
+
+    const total = calcularTotalConsumoDb({ cantidad: payload.cantidad, precio: servicio.precio });
 
     const [resultado] = await conn.execute(
       `
@@ -93,9 +227,9 @@ export async function registrarConsumo(payload, contexto = {}) {
       {
         idReserva: ocupacion.id_reserva,
         idHabitacion: payload.habitacionId,
-        idServicio: payload.id_servicio ?? servicio.id_servicio,
+        idServicio: servicio.id_servicio,
         cantidad: Number(payload.cantidad),
-        precio: Number(payload.precio_unitario),
+        precio: Number(servicio.precio),
         subtotal: total,
         notas: payload.descripcion,
       },

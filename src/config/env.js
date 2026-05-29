@@ -65,7 +65,9 @@ export function getDbSslConfig() {
   }
 
   return {
-    rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
+    rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== undefined
+      ? process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false'
+      : true,
     ca: isBlank(ca) ? undefined : ca,
   };
 }

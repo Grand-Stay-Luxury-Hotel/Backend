@@ -193,6 +193,33 @@ export const swaggerSpec = swaggerJSDoc({
           },
         },
       },
+      '/health/db': {
+        get: {
+          tags: ['Salud'],
+          summary: 'Verifica la conexion a la base de datos configurada',
+          description: 'No expone host, usuario, password ni credenciales de Aiven.',
+          responses: {
+            200: {
+              description: 'Conexion a base de datos activa',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      estado: { type: 'string', example: 'ok' },
+                      base_datos: { type: 'string', example: 'grandstay_db' },
+                      motor: { type: 'string', example: 'mysql' },
+                      version_mysql: { type: 'string', example: '8.0.35' },
+                      conexion: { type: 'string', example: 'aiven_o_remota' },
+                      ssl: { type: 'string', example: 'REQUIRED' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
       '/auth/login': {
         post: {
           tags: ['Autenticacion'],
@@ -399,6 +426,32 @@ export const swaggerSpec = swaggerJSDoc({
           responses: {
             201: { description: 'Consumo registrado' },
             400: { $ref: '#/components/responses/ValidationError' },
+            401: { $ref: '#/components/responses/Unauthorized' },
+            403: { $ref: '#/components/responses/Forbidden' },
+          },
+        },
+      },
+      '/consumos/{reservaId}': {
+        get: {
+          tags: ['Consumos'],
+          summary: 'Lista consumos asociados a una reserva',
+          security: bearerAuth,
+          parameters: [{ name: 'reservaId', in: 'path', required: true, schema: { type: 'integer' }, example: 42 }],
+          responses: {
+            200: { description: 'Consumos de la reserva' },
+            401: { $ref: '#/components/responses/Unauthorized' },
+            403: { $ref: '#/components/responses/Forbidden' },
+            404: { description: 'Reserva no encontrada' },
+          },
+        },
+      },
+      '/consumos/mis-consumos': {
+        get: {
+          tags: ['Consumos'],
+          summary: 'Lista consumos del huesped autenticado',
+          security: bearerAuth,
+          responses: {
+            200: { description: 'Consumos del huesped' },
             401: { $ref: '#/components/responses/Unauthorized' },
             403: { $ref: '#/components/responses/Forbidden' },
           },

@@ -13,8 +13,10 @@ services:
       DB_NAME: ${DB_NAME:?DB_NAME requerido}
       DB_USER: ${DB_USER:?DB_USER requerido}
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD requerido}
-      DB_SSL_MODE: ${DB_SSL_MODE:-DISABLED}
+      DB_SSL_MODE: ${DB_SSL_MODE:-REQUIRED}
       DB_SSL_REJECT_UNAUTHORIZED: ${DB_SSL_REJECT_UNAUTHORIZED:-true}
+      DB_SSL_CA: ${DB_SSL_CA:-}
+      DB_SSL_CA_PATH: ${DB_SSL_CA_PATH:-./ca.pem}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET requerido}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
       ADMIN_OTP: ${ADMIN_OTP:-123456}
@@ -23,6 +25,8 @@ services:
       PAYMENT_GATEWAY_KEY: ${PAYMENT_GATEWAY_KEY:-mock_key}
     ports:
       - "4000:4000"
+    volumes:
+      - ./ca.pem:/app/ca.pem:ro
     networks:
       - grandstay-net
     healthcheck:
@@ -38,7 +42,7 @@ services:
     container_name: grandstay-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD requerido para MySQL local}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password_local}
       MYSQL_DATABASE: ${DB_NAME:-grandstay_db}
       MYSQL_USER: ${DB_USER:-grandstay_user}
       MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD requerido}
@@ -51,7 +55,7 @@ services:
     networks:
       - grandstay-net
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
       interval: 10s
       timeout: 5s
       retries: 5

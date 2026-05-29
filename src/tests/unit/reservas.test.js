@@ -1,5 +1,5 @@
 // src/tests/unit/reservas.test.js
-import { calcularPenalizacion, validarReserva } from '../../services/reservas.service.js';
+import { calcularPenalizacion, validarEstadoReservaCancelable, validarReserva } from '../../services/reservas.service.js';
 import { autorizarPago, reembolsarPago } from '../../services/pasarela.service.js';
 
 describe('HU-B02 y HU-B04 reservas.service', () => {
@@ -89,5 +89,12 @@ describe('HU-B02 y HU-B04 reservas.service', () => {
   test('rechaza reembolso sin token almacenado', async () => {
     await expect(reembolsarPago({ tokenPago: '', monto: 70000 }))
       .rejects.toHaveProperty('codigo', 'PARAMETROS_INVALIDOS');
+  });
+
+  test('permite cancelar solo reservas pendientes o confirmadas', () => {
+    expect(() => validarEstadoReservaCancelable('pendiente')).not.toThrow();
+    expect(() => validarEstadoReservaCancelable('confirmada')).not.toThrow();
+    expect(() => validarEstadoReservaCancelable('en_curso')).toThrow('Solo se pueden cancelar reservas');
+    expect(() => validarEstadoReservaCancelable('completada')).toThrow('Solo se pueden cancelar reservas');
   });
 });

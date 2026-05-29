@@ -4,7 +4,7 @@ import { jest } from '@jest/globals';
 import { createApp } from '../../app.js';
 import { cambiarEstadoHabitacion } from '../../services/habitaciones.service.js';
 import { buscarHuespedes } from '../../services/huespedes.service.js';
-import { registrarConsumo } from '../../services/consumos.service.js';
+import { listarConsumosPorReserva, listarMisConsumos, registrarConsumo } from '../../services/consumos.service.js';
 import { login } from '../../services/auth.service.js';
 import { actualizarUmbralInventario, listarAlertasInventario, registrarConsumoInventario } from '../../services/inventario.service.js';
 import { obtenerReporteIngresos, obtenerReporteOcupacion } from '../../services/reportes.service.js';
@@ -27,6 +27,8 @@ jest.mock('../../services/huespedes.service.js', () => ({
 
 jest.mock('../../services/consumos.service.js', () => ({
   registrarConsumo: jest.fn(),
+  listarConsumosPorReserva: jest.fn(),
+  listarMisConsumos: jest.fn(),
 }));
 
 jest.mock('../../services/auth.service.js', () => ({
@@ -36,6 +38,8 @@ jest.mock('../../services/auth.service.js', () => ({
 jest.mock('../../services/inventario.service.js', () => ({
   registrarConsumoInventario: jest.fn(),
   listarAlertasInventario: jest.fn(),
+  listarHistorialInventario: jest.fn(),
+  listarInsumosInventario: jest.fn(),
   actualizarUmbralInventario: jest.fn(),
 }));
 
@@ -105,6 +109,42 @@ describe('Integracion HU-B07 a HU-B12', () => {
       .set('Authorization', `Bearer ${token('Recepcionista')}`)
       .send({ habitacionId: 1 })
       .expect(422);
+  });
+
+  test('GET /consumos/:reservaId retorna historial de consumos', () => {
+    listarConsumosPorReserva.mockResolvedValue({
+      data: [{ id_consumo: 1, id_reserva: 42, subtotal: 90000 }],
+      total: 1,
+      total_consumos: 90000,
+    });
+
+    return request(app)
+      .get('/consumos/42')
+      .set('Authorization', `Bearer ${token('Recepcionista')}`)
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.total_consumos).toBe(90000);
+        expect(listarConsumosPorReserva).toHaveBeenCalledWith('42', expect.objectContaining({ rol: 'Recepcionista' }));
+      });
+  });
+
+  test('GET /consumos/mis-consumos retorna consumos del huesped autenticado', () => {
+    listarMisConsumos.mockResolvedValue({
+      data: [{ id_consumo: 1, id_reserva: 42, subtotal: 35000 }],
+      total: 1,
+      total_consumos: 35000,
+    });
+
+    const tokenHuesped = jwt.sign({ id_usuario: 6, rol: 'Huesped', id_huesped: 1 }, secreto);
+
+    return request(app)
+      .get('/consumos/mis-consumos')
+      .set('Authorization', `Bearer ${tokenHuesped}`)
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.total).toBe(1);
+        expect(listarMisConsumos).toHaveBeenCalledWith(expect.objectContaining({ idHuesped: 1 }));
+      });
   });
 
   test('POST /auth/login retorna token', () => {

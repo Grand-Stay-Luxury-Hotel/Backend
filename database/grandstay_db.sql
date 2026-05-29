@@ -101,6 +101,8 @@ CREATE TABLE IF NOT EXISTS habitaciones (
 CREATE TABLE IF NOT EXISTS tarifas (
   id_tarifa INT AUTO_INCREMENT PRIMARY KEY,
   id_tipo INT NOT NULL,
+  nombre VARCHAR(120) NOT NULL DEFAULT 'Tarifa general',
+  temporada ENUM('alta', 'media', 'baja') DEFAULT 'media',
   precio_noche DECIMAL(10, 2) NOT NULL,
   fecha_inicio DATE NOT NULL,
   fecha_fin DATE,
@@ -167,7 +169,7 @@ CREATE TABLE IF NOT EXISTS checkout (
   id_checkin INT NOT NULL,
   id_recepcionista INT,
   total_cobrado DECIMAL(10, 2) NOT NULL,
-  estado_habitacion ENUM('bueno', 'limpieza', 'mantenimiento') DEFAULT 'bueno',
+  estado_habitacion ENUM('bueno', 'danos_menores', 'danos_graves', 'pendiente_revision') DEFAULT 'pendiente_revision',
   cargos_adicionales DECIMAL(10, 2) DEFAULT 0,
   observaciones TEXT,
   fecha_salida TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

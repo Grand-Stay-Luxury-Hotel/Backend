@@ -1,7 +1,8 @@
 // src/services/checkout.service.js
-import { getConnection } from '../utils/db.js';
+import { getConnection, query } from '../utils/db.js';
 import {
   CheckoutDuplicadoError,
+  EntidadNoProcesableError,
   ParametrosInvalidosError,
   ReservaEstadoInvalidoError,
   ReservaNoEncontradaError,
@@ -73,6 +74,85 @@ export function normalizarEstadoHabitacionCheckout(estado) {
   return normalizado;
 }
 
+export function validarTarifaParaCheckout(tarifa) {
+  if (!tarifa || Number(tarifa.precio_noche) <= 0) {
+    throw new EntidadNoProcesableError('No existe una tarifa activa para liquidar esta reserva');
+  }
+}
+
+export async function obtenerResumenCheckout(idReserva) {
+  try {
+    const [reserva] = await query(
+      `
+        SELECT r.*, ci.id_checkin, co.id_checkout
+        FROM reservas r
+        LEFT JOIN checkin ci ON ci.id_reserva = r.id_reserva
+        LEFT JOIN checkout co ON co.id_checkin = ci.id_checkin
+        WHERE r.id_reserva = :idReserva
+        LIMIT 1
+      `,
+      { idReserva },
+    );
+
+    if (!reserva) {
+      throw new ReservaNoEncontradaError();
+    }
+
+    validarEstadoReservaParaCheckout(reserva.estado, reserva.id_checkin);
+
+    const [tarifa] = await query(
+      `
+        SELECT precio_noche
+        FROM tarifas
+        WHERE id_tipo = :idTipo
+          AND activa = TRUE
+          AND fecha_inicio <= :fechaEntrada
+          AND fecha_fin >= :fechaSalida
+        ORDER BY fecha_inicio DESC
+        LIMIT 1
+      `,
+      { idTipo: reserva.id_tipo_habitacion, fechaEntrada: reserva.fecha_entrada, fechaSalida: reserva.fecha_salida },
+    );
+    validarTarifaParaCheckout(tarifa);
+
+    const consumos = await query(
+      `
+        SELECT
+          cs.id_consumo_servicio AS id_consumo,
+          cs.id_servicio,
+          sa.nombre AS servicio_nombre,
+          sa.categoria AS tipo,
+          cs.cantidad,
+          cs.precio_aplicado AS precio_unitario,
+          cs.subtotal,
+          cs.fecha,
+          cs.estado,
+          cs.notas
+        FROM consumo_servicios cs
+        JOIN servicios_adicionales sa ON sa.id_servicio = cs.id_servicio
+        WHERE cs.id_reserva = :idReserva AND cs.estado <> 'cancelado'
+        ORDER BY cs.fecha DESC
+      `,
+      { idReserva },
+    );
+
+    const liquidacion = calcularLiquidacion({ reserva, tarifa, consumos });
+    return {
+      id_reserva: Number(idReserva),
+      estado: reserva.estado,
+      fecha_entrada: reserva.fecha_entrada,
+      fecha_salida: reserva.fecha_salida,
+      consumos,
+      total_consumos: liquidacion.total_consumos,
+      total_facturado: liquidacion.total,
+      saldo_pendiente: liquidacion.saldo_cobrado,
+      resumen_factura: liquidacion,
+    };
+  } catch (error) {
+    throw error;
+  }
+}
+
 /* istanbul ignore next */
 async function encolarEnvioFactura(conn, { reserva, numeroFactura, facturaElectronica }) {
   const [resultado] = await conn.execute(
@@ -141,6 +221,7 @@ export async function registrarCheckout(idReserva, contexto = {}) {
       `,
       { idTipo: reserva.id_tipo_habitacion, fechaEntrada: reserva.fecha_entrada, fechaSalida: reserva.fecha_salida },
     );
+    validarTarifaParaCheckout(tarifa);
 
     const [consumos] = await conn.execute(
       `
@@ -153,7 +234,7 @@ export async function registrarCheckout(idReserva, contexto = {}) {
 
     const liquidacion = calcularLiquidacion({
       reserva,
-      tarifa: tarifa ?? { precio_noche: 0 },
+      tarifa,
       consumos,
     });
 

@@ -8,6 +8,7 @@ import {
   ESTADO_RESERVA_CHECKIN,
   registrarCheckin,
   validarEstadoReservaParaCheckin,
+  validarFechaReservaParaCheckin,
 } from '../../services/checkin.service.js';
 
 jest.mock('../../utils/db.js', () => ({
@@ -43,7 +44,13 @@ describe('HU-B05 checkin.service', () => {
 
   test('registra check-in, cambia reserva a en_curso y habitacion a ocupada', async () => {
     const conn = crearConexionMock({
-      reserva: [[{ id_reserva: 42, id_habitacion: 7, estado: 'confirmada' }]],
+      reserva: [[{
+        id_reserva: 42,
+        id_habitacion: 7,
+        estado: 'confirmada',
+        fecha_entrada: '2099-06-01',
+        fecha_salida: '2099-06-03',
+      }]],
       checkinExistente: [[]],
       insertCheckin: [{ insertId: 15 }],
       updateReserva: [{ affectedRows: 1 }],
@@ -56,6 +63,7 @@ describe('HU-B05 checkin.service', () => {
       idRecepcionista: 1,
       userId: 2,
       rol: 'Recepcionista',
+      fechaActual: new Date('2099-06-01T10:00:00Z'),
     });
 
     expect(resultado).toMatchObject({
@@ -86,7 +94,13 @@ describe('HU-B05 checkin.service', () => {
 
   test('evita check-in duplicado sobre la misma reserva', async () => {
     const conn = crearConexionMock({
-      reserva: [[{ id_reserva: 42, id_habitacion: 7, estado: 'confirmada' }]],
+      reserva: [[{
+        id_reserva: 42,
+        id_habitacion: 7,
+        estado: 'confirmada',
+        fecha_entrada: '2099-06-01',
+        fecha_salida: '2099-06-03',
+      }]],
       checkinExistente: [[{ id_checkin: 99 }]],
       insertCheckin: [{ insertId: 15 }],
       updateReserva: [{ affectedRows: 1 }],
@@ -106,5 +120,15 @@ describe('HU-B05 checkin.service', () => {
     eventosGrandStay.once('codigo_acceso.generado', listener);
     await emitirCodigoAcceso({ id_reserva: 1, codigo_acceso: 'GS-1234' });
     expect(listener).toHaveBeenCalledWith({ id_reserva: 1, codigo_acceso: 'GS-1234' });
+  });
+
+  test('rechaza check-in antes de la fecha de entrada', () => {
+    expect(() => validarFechaReservaParaCheckin('2099-06-10', '2099-06-12', new Date('2099-06-09T10:00:00Z')))
+      .toThrow('desde la fecha de entrada');
+  });
+
+  test('rechaza check-in despues de la fecha de salida', () => {
+    expect(() => validarFechaReservaParaCheckin('2099-06-10', '2099-06-12', new Date('2099-06-12T10:00:00Z')))
+      .toThrow('ya no permite registrar check-in');
   });
 });

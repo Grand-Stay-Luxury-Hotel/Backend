@@ -46,4 +46,11 @@ describe('configuracion de entorno', () => {
 
     expect(getDbSslConfig()).toEqual({ rejectUnauthorized: true, ca: undefined });
   });
+
+  test('usa validacion CA por defecto cuando SSL esta habilitado', () => {
+    process.env.DB_SSL_MODE = 'REQUIRED';
+    delete process.env.DB_SSL_REJECT_UNAUTHORIZED;
+
+    expect(getDbSslConfig()).toEqual({ rejectUnauthorized: true, ca: undefined });
+  });
 });

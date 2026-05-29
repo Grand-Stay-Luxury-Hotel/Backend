@@ -23,6 +23,31 @@ export function validarEstadoReservaParaCheckin(estado) {
   }
 }
 
+function normalizarFechaDia(fecha) {
+  if (fecha instanceof Date) {
+    return new Date(Date.UTC(fecha.getUTCFullYear(), fecha.getUTCMonth(), fecha.getUTCDate()));
+  }
+  return new Date(`${fecha}T00:00:00Z`);
+}
+
+export function validarFechaReservaParaCheckin(fechaEntrada, fechaSalida, fechaActual = new Date()) {
+  const entrada = normalizarFechaDia(fechaEntrada);
+  const salida = normalizarFechaDia(fechaSalida);
+  const actual = normalizarFechaDia(fechaActual);
+
+  if (Number.isNaN(entrada.getTime()) || Number.isNaN(salida.getTime()) || Number.isNaN(actual.getTime())) {
+    throw new ReservaEstadoInvalidoError('Las fechas de la reserva no permiten validar el check-in');
+  }
+
+  if (actual < entrada) {
+    throw new ReservaEstadoInvalidoError('El check-in solo puede registrarse desde la fecha de entrada');
+  }
+
+  if (actual >= salida) {
+    throw new ReservaEstadoInvalidoError('La fecha de la reserva ya no permite registrar check-in');
+  }
+}
+
 export async function registrarCheckin(idReserva, contexto = {}) {
   const conn = await getConnection();
   try {
@@ -30,7 +55,7 @@ export async function registrarCheckin(idReserva, contexto = {}) {
 
     const [[reserva]] = await conn.execute(
       `
-        SELECT id_reserva, id_habitacion, estado
+        SELECT id_reserva, id_habitacion, estado, fecha_entrada, fecha_salida
         FROM reservas
         WHERE id_reserva = :idReserva
         FOR UPDATE
@@ -58,6 +83,7 @@ export async function registrarCheckin(idReserva, contexto = {}) {
     }
 
     validarEstadoReservaParaCheckin(reserva.estado);
+    validarFechaReservaParaCheckin(reserva.fecha_entrada, reserva.fecha_salida, contexto.fechaActual);
 
     const codigoAcceso = generarCodigoAcceso();
     const [resultado] = await conn.execute(
