@@ -40,7 +40,7 @@ export async function buscarHuespedes({ buscar = '', limite = 20 } = {}) {
           OR h.email LIKE :buscar
           OR h.num_documento LIKE :buscar
         ORDER BY h.apellidos, h.nombres
-        LIMIT :limite
+        LIMIT ${limiteNormalizado}
       `,
       { buscar: patronBusqueda, limite: limiteNormalizado },
     );

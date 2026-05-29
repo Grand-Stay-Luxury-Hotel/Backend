@@ -22,6 +22,7 @@ const TRANSICIONES_VALIDAS = new Map([
 const ROLES_LIMPIEZA = new Set(['personallimpieza', 'limpieza']);
 const ROLES_RECEPCION = new Set(['recepcionista']);
 const ROLES_ADMIN = new Set(['administrador', 'admin']);
+const ROLES_TECNICO = new Set(['serviciotecnico', 'serviciodetecnico']);
 
 function normalizarRol(rol) {
   const llave = String(rol ?? '').replace(/\s+/g, '').toLowerCase();
@@ -29,6 +30,10 @@ function normalizarRol(rol) {
     ['personaldelimpieza', 'personallimpieza'],
     ['limpieza', 'personallimpieza'],
     ['admin', 'administrador'],
+    ['serviciotecnico', 'serviciotecnico'],
+    ['serviciotécnico', 'serviciotecnico'],
+    ['serviciodetecnico', 'serviciotecnico'],
+    ['serviciodetécnico', 'serviciotecnico'],
   ]);
   return alias.get(llave) ?? llave;
 }
@@ -59,17 +64,18 @@ export async function listarHabitaciones({ buscar = '', estado = null, conReserv
     }
 
     const patronBusqueda = String(buscar ?? '').trim();
+    const limiteNormalizado = normalizarLimite(limite);
     const habitaciones = await query(
       `
         SELECT
           h.id_habitacion,
-          h.numero AS numero_habitacion,
+          h.numero_habitacion,
           h.piso,
           h.estado,
           h.activo,
           th.id_tipo,
           th.nombre AS tipo_nombre,
-          th.capacidad AS capacidad_max,
+          th.capacidad_max,
           r.id_reserva AS id_reserva_activa,
           r.codigo_confirmacion,
           r.estado AS estado_reserva,
@@ -82,17 +88,17 @@ export async function listarHabitaciones({ buscar = '', estado = null, conReserv
         LEFT JOIN huespedes hu ON hu.id_huesped = r.id_huesped
         WHERE
           (:estado IS NULL OR h.estado = :estado)
-          AND (:buscar = '' OR h.numero LIKE :buscarLike OR th.nombre LIKE :buscarLike)
+          AND (:buscar = '' OR h.numero_habitacion LIKE :buscarLike OR th.nombre LIKE :buscarLike)
           AND (:conReservaActiva = FALSE OR r.id_reserva IS NOT NULL)
-        ORDER BY h.piso, h.numero
-        LIMIT :limite
+        ORDER BY h.piso, h.numero_habitacion
+        LIMIT ${limiteNormalizado}
       `,
       {
         estado: estadoNormalizado,
         buscar: patronBusqueda,
         buscarLike: `%${patronBusqueda}%`,
         conReservaActiva: normalizarBooleano(conReservaActiva),
-        limite: normalizarLimite(limite),
+        limite: limiteNormalizado,
       },
     );
 
@@ -126,8 +132,16 @@ export function validarTransicionHabitacion(estadoActual, estadoNuevo, rol) {
   }
 
   const rolNormalizado = normalizarRol(rol);
-  if ((nuevo === 'mantenimiento' || nuevo === 'bloqueada') && !ROLES_RECEPCION.has(rolNormalizado) && !ROLES_ADMIN.has(rolNormalizado)) {
+  if (nuevo === 'bloqueada' && !ROLES_RECEPCION.has(rolNormalizado) && !ROLES_ADMIN.has(rolNormalizado)) {
+    throw new AccesoDenegadoError('Solo recepcion puede bloquear habitaciones');
+  }
+
+  if (nuevo === 'mantenimiento' && !ROLES_RECEPCION.has(rolNormalizado) && !ROLES_ADMIN.has(rolNormalizado) && !ROLES_TECNICO.has(rolNormalizado)) {
     throw new AccesoDenegadoError('Solo recepcion puede marcar habitaciones en mantenimiento');
+  }
+
+  if (actual === 'mantenimiento' && !ROLES_RECEPCION.has(rolNormalizado) && !ROLES_ADMIN.has(rolNormalizado) && !ROLES_TECNICO.has(rolNormalizado)) {
+    throw new AccesoDenegadoError('Solo recepcion o servicio tecnico puede finalizar mantenimiento');
   }
 
   return { actual, nuevo, bloqueaReservas: nuevo === 'bloqueada' || nuevo === 'mantenimiento' || nuevo === 'limpieza' };

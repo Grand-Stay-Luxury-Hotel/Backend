@@ -1,5 +1,11 @@
 // src/controllers/inventario.controller.js
-import { actualizarUmbralInventario, listarAlertasInventario, registrarConsumoInventario } from '../services/inventario.service.js';
+import {
+  actualizarUmbralInventario,
+  listarAlertasInventario,
+  listarHistorialInventario,
+  listarInsumosInventario,
+  registrarConsumoInventario,
+} from '../services/inventario.service.js';
 
 function crearContexto(req) {
   return {
@@ -26,6 +32,24 @@ export async function getAlertasInventario(req, res, next) {
       pagina: Number(req.query.pagina) || 1,
       limite: Number(req.query.limite) || 50,
     });
+    res.status(200).json(resultado);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getInsumosInventario(req, res, next) {
+  try {
+    const resultado = await listarInsumosInventario(req.query);
+    res.status(200).json(resultado);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getHistorialInventario(req, res, next) {
+  try {
+    const resultado = await listarHistorialInventario(req.query);
     res.status(200).json(resultado);
   } catch (error) {
     next(error);

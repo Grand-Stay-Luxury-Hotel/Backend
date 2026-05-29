@@ -191,7 +191,7 @@ export async function listarAlertasInventario({ pagina = 1, limite = 50 } = {}) 
   const paginacion = normalizarPaginacionInventario({ pagina, limite });
   const offset = (paginacion.pagina - 1) * paginacion.limite;
 
-  const [[{ total }]] = await query(
+  const [{ total }] = await query(
     `SELECT COUNT(*) AS total FROM notificaciones WHERE evento = 'alerta_stock' AND estado = 'pendiente'`,
   );
 
@@ -217,11 +217,99 @@ export async function listarAlertasInventario({ pagina = 1, limite = 50 } = {}) 
         'critica',
         'alta'
       ), id_notificacion ASC
-      LIMIT :limite OFFSET :offset
+      LIMIT ${paginacion.limite} OFFSET ${offset}
     `,
-    { limite: paginacion.limite, offset },
+    {},
   );
   return { data: alertas, total, pagina: paginacion.pagina, limite: paginacion.limite };
+}
+
+/* istanbul ignore next */
+export async function listarInsumosInventario({ pagina = 1, limite = 100, buscar = '' } = {}) {
+  const paginacion = normalizarPaginacionInventario({ pagina, limite });
+  const offset = (paginacion.pagina - 1) * paginacion.limite;
+  const patronBusqueda = String(buscar ?? '').trim();
+
+  const [{ total }] = await query(
+    `
+      SELECT COUNT(*) AS total
+      FROM insumos_limpieza
+      WHERE (:buscar = '' OR nombre LIKE :buscarLike OR categoria LIKE :buscarLike)
+    `,
+    { buscar: patronBusqueda, buscarLike: `%${patronBusqueda}%` },
+  );
+
+  const data = await query(
+    `
+      SELECT
+        id_insumo,
+        nombre,
+        categoria,
+        unidad_medida,
+        stock_actual,
+        stock_minimo,
+        GREATEST(stock_minimo - stock_actual, 0) AS faltante,
+        updated_at
+      FROM insumos_limpieza
+      WHERE (:buscar = '' OR nombre LIKE :buscarLike OR categoria LIKE :buscarLike)
+      ORDER BY nombre ASC
+      LIMIT ${paginacion.limite} OFFSET ${offset}
+    `,
+    {
+      buscar: patronBusqueda,
+      buscarLike: `%${patronBusqueda}%`,
+    },
+  );
+
+  return { data, total, pagina: paginacion.pagina, limite: paginacion.limite };
+}
+
+/* istanbul ignore next */
+export async function listarHistorialInventario({ pagina = 1, limite = 50, idInsumo = null, idHabitacion = null } = {}) {
+  const paginacion = normalizarPaginacionInventario({ pagina, limite });
+  const offset = (paginacion.pagina - 1) * paginacion.limite;
+  const filtroInsumo = idInsumo ? normalizarIdPositivo(idInsumo, 'idInsumo') : null;
+  const filtroHabitacion = idHabitacion ? normalizarIdPositivo(idHabitacion, 'idHabitacion') : null;
+
+  const [{ total }] = await query(
+    `
+      SELECT COUNT(*) AS total
+      FROM consumo_insumos ci
+      WHERE (:idInsumo IS NULL OR ci.id_insumo = :idInsumo)
+        AND (:idHabitacion IS NULL OR ci.id_habitacion = :idHabitacion)
+    `,
+    { idInsumo: filtroInsumo, idHabitacion: filtroHabitacion },
+  );
+
+  const data = await query(
+    `
+      SELECT
+        ci.id_consumo_insumo AS id_consumo,
+        ci.id_personal,
+        CONCAT(u.nombre, ' ', u.apellido) AS personal_nombre,
+        ci.id_insumo,
+        il.nombre AS insumo_nombre,
+        il.categoria,
+        ci.id_habitacion,
+        h.numero_habitacion,
+        ci.tipo_tarea,
+        ci.cantidad,
+        ci.observaciones,
+        ci.fecha AS fecha_consumo
+      FROM consumo_insumos ci
+      JOIN insumos_limpieza il ON il.id_insumo = ci.id_insumo
+      JOIN habitaciones h ON h.id_habitacion = ci.id_habitacion
+      JOIN personal_limpieza pl ON pl.id_personal = ci.id_personal
+      JOIN usuarios u ON u.id_usuario = pl.id_usuario
+      WHERE (:idInsumo IS NULL OR ci.id_insumo = :idInsumo)
+        AND (:idHabitacion IS NULL OR ci.id_habitacion = :idHabitacion)
+      ORDER BY ci.fecha DESC, ci.id_consumo_insumo DESC
+      LIMIT ${paginacion.limite} OFFSET ${offset}
+    `,
+    { idInsumo: filtroInsumo, idHabitacion: filtroHabitacion },
+  );
+
+  return { data, total, pagina: paginacion.pagina, limite: paginacion.limite };
 }
 
 /* istanbul ignore next */

@@ -33,10 +33,10 @@ export async function consultarDisponibilidad({ fechaEntrada, fechaSalida, tipo 
       `
         SELECT
           h.id_habitacion,
-          h.numero AS numero_habitacion,
+          h.numero_habitacion,
           h.piso,
           th.nombre AS tipo_nombre,
-          th.capacidad AS capacidad_max,
+          th.capacidad_max,
           h.estado
         FROM habitaciones h
         JOIN tipos_habitacion th ON h.id_tipo = th.id_tipo
@@ -51,8 +51,8 @@ export async function consultarDisponibilidad({ fechaEntrada, fechaSalida, tipo 
               AND r.fecha_salida > :fechaEntrada
           )
           AND (:tipo IS NULL OR th.nombre = :tipo)
-          AND (:capacidad IS NULL OR th.capacidad >= :capacidad)
-        ORDER BY h.piso, h.numero
+          AND (:capacidad IS NULL OR th.capacidad_max >= :capacidad)
+        ORDER BY h.piso, h.numero_habitacion
       `,
       {
         fechaEntrada,

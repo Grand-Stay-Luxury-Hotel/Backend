@@ -18,11 +18,14 @@ npm install
 Crear `.env` a partir de `.env.example` y configurar al menos:
 
 ```env
-DB_HOST=localhost
-DB_PORT=3306
+DB_HOST=your-aiven-host.aivencloud.com
+DB_PORT=23465
 DB_NAME=grandstay_db
-DB_USER=grandstay_user
+DB_USER=avnadmin
 DB_PASSWORD=change_me
+DB_SSL_MODE=REQUIRED
+DB_SSL_REJECT_UNAUTHORIZED=true
+DB_SSL_CA_PATH=./ca.pem
 DB_NAME_TEST=grandstay_test
 
 JWT_SECRET=change_me_min_32_chars_please_replace
@@ -54,7 +57,10 @@ Verificacion:
 
 ```http
 GET /health
+GET /health/db
 ```
+
+Para Aiven se recomienda dejar `DB_SSL_REJECT_UNAUTHORIZED=true` y apuntar `DB_SSL_CA_PATH` al certificado CA. En Docker, `ca.pem` se monta dentro del contenedor como `/app/ca.pem`.
 
 ## Swagger
 
@@ -143,6 +149,7 @@ disponible, ocupada, limpieza, mantenimiento, bloqueada
 | Metodo | Ruta | Roles |
 |---|---|---|
 | GET | `/reservas` | Recepcionista, Administrador |
+| GET | `/reservas/mis-reservas` | Huesped |
 | POST | `/reservas` | Recepcionista, Huesped |
 | DELETE | `/reservas/:id` | Recepcionista, Administrador |
 
@@ -152,12 +159,13 @@ Estados usados:
 pendiente, confirmada, en_curso, completada, cancelada, no_show
 ```
 
-Crear una reserva no marca la habitacion como ocupada. La habitacion pasa a `ocupada` en check-in.
+Crear una reserva exige `token_pago`; no se almacenan datos de tarjeta. La habitacion pasa a `ocupada` en check-in. La cancelacion solo esta permitida para reservas `pendiente` o `confirmada`.
 
 ### Check-in y checkout
 
 | Metodo | Ruta | Roles |
 |---|---|---|
+| GET | `/checkout/:reservaId/resumen` | Recepcionista |
 | POST | `/checkin/:reservaId` | Recepcionista |
 | POST | `/checkout/:reservaId` | Recepcionista |
 
@@ -180,6 +188,8 @@ Ese valor es distinto del estado operativo de la habitacion, que queda en `limpi
 
 | Metodo | Ruta | Roles |
 |---|---|---|
+| GET | `/consumos/:reservaId` | Recepcionista, Administrador |
+| GET | `/consumos/mis-consumos` | Huesped |
 | POST | `/consumos` | Recepcionista |
 
 Tipos validos:
@@ -188,11 +198,33 @@ Tipos validos:
 restaurante, lavanderia, spa
 ```
 
+El precio aplicado al consumo se toma desde `servicios_adicionales`; el backend no confia en precios enviados por el cliente.
+
+### Servicios adicionales y tarifas
+
+| Metodo | Ruta | Roles |
+|---|---|---|
+| GET | `/servicios` | Recepcionista, Administrador, Huesped |
+| GET | `/tarifas` | Administrador, Recepcionista |
+| POST | `/tarifas` | Administrador |
+| PUT | `/tarifas/:id` | Administrador |
+| DELETE | `/tarifas/:id` | Administrador |
+
+`DELETE /tarifas/:id` desactiva la tarifa; no elimina el registro fisicamente.
+
+### Facturas
+
+| Metodo | Ruta | Roles |
+|---|---|---|
+| GET | `/facturas/reserva/:reservaId` | Recepcionista, Administrador, Huesped |
+
 ### Inventario
 
 | Metodo | Ruta | Roles |
 |---|---|---|
 | POST | `/inventario/consumo` | Administrador, PersonalLimpieza |
+| GET | `/inventario/insumos` | Administrador, PersonalLimpieza |
+| GET | `/inventario/historial` | Administrador, PersonalLimpieza |
 | GET | `/inventario/alertas` | Administrador |
 | PATCH | `/inventario/:id/umbral` | Administrador |
 
@@ -214,7 +246,11 @@ Los reportes devuelven JSON. El campo `pdf_trigger`, si aparece en `exportable`,
 
 ## Auditoria
 
-Auditoria funciona como middleware/servicio interno. No existe endpoint HTTP publico.
+Auditoria funciona como middleware/servicio interno y puede consultarse por administrador.
+
+| Metodo | Ruta | Roles |
+|---|---|---|
+| GET | `/auditoria` | Administrador |
 
 La tabla principal es `log_auditoria`. El backend redacta campos sensibles comunes antes de registrar valores auditados.
 
@@ -230,6 +266,6 @@ El proyecto exige cobertura global minima de 80%.
 
 ## Pendientes conocidos
 
-- Mantener el schema remoto alineado con `database/grandstay_db.sql`.
+- Mantener el schema remoto de Aiven alineado con `database/grandstay_db.sql`.
 - Evitar triggers de BD que dupliquen cambios de estado ya controlados por el backend.
-- Revisar `database/seed-data.sql` si se detectan columnas desactualizadas frente al schema actual.
+- Pasarela, envio de correos y generacion real de PDF siguen como mocks/stubs.

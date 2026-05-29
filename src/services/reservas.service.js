@@ -5,6 +5,8 @@ import { verificarDisponibilidad } from './overbooking.service.js';
 import { autorizarPago, reembolsarPago } from './pasarela.service.js';
 import { logAudit } from '../middleware/audit.middleware.js';
 
+const ESTADOS_RESERVA_CANCELABLES = new Set(['pendiente', 'confirmada']);
+
 /* istanbul ignore next */
 function generarCodigoConfirmacion() {
   return `GS${Date.now().toString().slice(-10)}`;
@@ -58,6 +60,14 @@ export function calcularPenalizacion(fechaEntrada, montoPagado, fechaActual = ne
   return { porcentaje, montoPenalizacion, montoReembolso };
 }
 
+export function validarEstadoReservaCancelable(estado) {
+  if (!ESTADOS_RESERVA_CANCELABLES.has(estado)) {
+    throw new ReservaEstadoInvalidoError(
+      `Solo se pueden cancelar reservas en estado ${Array.from(ESTADOS_RESERVA_CANCELABLES).join(' o ')}`,
+    );
+  }
+}
+
 function normalizarLimite(limite = 50) {
   const valor = Number(limite);
   if (!Number.isInteger(valor) || valor < 1 || valor > 100) {
@@ -70,7 +80,7 @@ function estadosPorOperacion(operacion) {
   const operacionNormalizada = String(operacion ?? '').trim().toLowerCase();
   if (operacionNormalizada === 'checkin') return ['confirmada'];
   if (operacionNormalizada === 'checkout') return ['en_curso'];
-  if (operacionNormalizada === 'cancelacion') return ['pendiente', 'confirmada', 'en_curso'];
+  if (operacionNormalizada === 'cancelacion') return Array.from(ESTADOS_RESERVA_CANCELABLES);
   return null;
 }
 
@@ -79,6 +89,7 @@ export async function listarReservas({ buscar = '', estado = null, operacion = n
     const estadosOperacion = estadosPorOperacion(operacion);
     const estados = estadosOperacion ?? (estado ? [String(estado).trim()] : null);
     const patronBusqueda = String(buscar ?? '').trim();
+    const limiteNormalizado = normalizarLimite(limite);
 
     const reservas = await query(
       `
@@ -95,7 +106,7 @@ export async function listarReservas({ buscar = '', estado = null, operacion = n
           hu.email AS huesped_email,
           hu.num_documento AS huesped_documento,
           r.id_habitacion,
-          h.numero AS numero_habitacion,
+          h.numero_habitacion,
           th.nombre AS tipo_habitacion,
           ci.id_checkin
         FROM reservas r
@@ -109,7 +120,7 @@ export async function listarReservas({ buscar = '', estado = null, operacion = n
             :buscar = ''
             OR r.codigo_confirmacion LIKE :buscarLike
             OR CAST(r.id_reserva AS CHAR) = :buscarExacto
-            OR h.numero LIKE :buscarLike
+            OR h.numero_habitacion LIKE :buscarLike
             OR hu.nombres LIKE :buscarLike
             OR hu.apellidos LIKE :buscarLike
             OR CONCAT(hu.nombres, ' ', hu.apellidos) LIKE :buscarLike
@@ -117,14 +128,14 @@ export async function listarReservas({ buscar = '', estado = null, operacion = n
             OR hu.num_documento LIKE :buscarLike
           )
         ORDER BY r.fecha_entrada DESC, r.id_reserva DESC
-        LIMIT :limite
+        LIMIT ${limiteNormalizado}
       `,
       {
         estadosCsv: estados ? estados.join(',') : null,
         buscar: patronBusqueda,
         buscarLike: `%${patronBusqueda}%`,
         buscarExacto: patronBusqueda,
-        limite: normalizarLimite(limite),
+        limite: limiteNormalizado,
       },
     );
 
@@ -143,16 +154,68 @@ export async function listarReservas({ buscar = '', estado = null, operacion = n
   }
 }
 
+export async function listarReservasHuesped(idHuesped, { estado = null, limite = 50 } = {}) {
+  try {
+    const huespedId = Number(idHuesped);
+    if (!Number.isInteger(huespedId) || huespedId <= 0) {
+      throw new AccesoDenegadoError('No hay huesped asociado al usuario autenticado');
+    }
+    const limiteNormalizado = normalizarLimite(limite);
+
+    const reservas = await query(
+      `
+        SELECT
+          r.id_reserva,
+          r.codigo_confirmacion,
+          r.codigo_confirmacion AS codigo_reserva,
+          r.estado,
+          r.fecha_entrada,
+          r.fecha_salida,
+          r.monto_pagado,
+          r.monto_pagado AS monto_anticipo,
+          r.canal_reserva,
+          r.id_huesped,
+          (r.num_adultos + r.num_ninos) AS numero_huespedes,
+          CONCAT(hu.nombres, ' ', hu.apellidos) AS huesped_nombre,
+          hu.email AS huesped_email,
+          hu.num_documento AS huesped_documento,
+          r.id_habitacion,
+          h.numero_habitacion,
+          th.nombre AS tipo_habitacion,
+          ci.id_checkin
+        FROM reservas r
+        JOIN huespedes hu ON hu.id_huesped = r.id_huesped
+        JOIN habitaciones h ON h.id_habitacion = r.id_habitacion
+        JOIN tipos_habitacion th ON th.id_tipo = r.id_tipo_habitacion
+        LEFT JOIN checkin ci ON ci.id_reserva = r.id_reserva
+        WHERE r.id_huesped = :idHuesped
+          AND (:estado IS NULL OR r.estado = :estado)
+        ORDER BY r.fecha_entrada DESC, r.id_reserva DESC
+        LIMIT ${limiteNormalizado}
+      `,
+      {
+        idHuesped: huespedId,
+        estado: estado ? String(estado).trim() : null,
+        limite: limiteNormalizado,
+      },
+    );
+
+    return {
+      data: reservas,
+      total: reservas.length,
+      mensaje: reservas.length === 0 ? 'No tienes reservas registradas' : undefined,
+    };
+  } catch (error) {
+    throw error;
+  }
+}
+
 /* istanbul ignore next */
 export async function crearReserva(payload, contexto = {}) {
   const conn = await getConnection();
   try {
     if (contexto.rol === 'Huesped') {
       payload.id_huesped = contexto.idHuesped;
-    }
-
-    if (!payload.token_pago) {
-      payload.token_pago = `tok_mock_${Date.now()}`;
     }
 
     validarReserva(payload);
@@ -286,9 +349,7 @@ export async function cancelarReserva(idReserva, contexto = {}) {
       throw new ReservaNoEncontradaError();
     }
 
-    if (reserva.estado === 'cancelada') {
-      throw new ReservaEstadoInvalidoError('La reserva ya se encuentra cancelada');
-    }
+    validarEstadoReservaCancelable(reserva.estado);
 
     const penalizacion = calcularPenalizacion(reserva.fecha_entrada, Number(reserva.monto_pagado));
     if (penalizacion.montoReembolso > 0) {
@@ -316,7 +377,7 @@ export async function cancelarReserva(idReserva, contexto = {}) {
       { idReserva },
     );
 
-    if (reserva.id_habitacion) {
+    if (reserva.id_habitacion && reserva.estado === 'confirmada') {
       await conn.execute(
         "UPDATE habitaciones SET estado = 'disponible' WHERE id_habitacion = :idHabitacion",
         { idHabitacion: reserva.id_habitacion },

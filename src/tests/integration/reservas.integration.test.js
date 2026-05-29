@@ -10,6 +10,7 @@ jest.mock('../../services/reservas.service.js', () => ({
   crearReserva: jest.fn(),
   cancelarReserva: jest.fn(),
   listarReservas: jest.fn(),
+  listarReservasHuesped: jest.fn(),
 }));
 
 const app = createApp();

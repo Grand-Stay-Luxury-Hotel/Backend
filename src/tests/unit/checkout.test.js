@@ -1,5 +1,5 @@
 // src/tests/unit/checkout.test.js
-import { calcularLiquidacion, crearFacturaElectronicaPayload } from '../../services/checkout.service.js';
+import { calcularLiquidacion, crearFacturaElectronicaPayload, validarTarifaParaCheckout } from '../../services/checkout.service.js';
 import { cobrarSaldo } from '../../services/pasarela.service.js';
 import { emitirFacturaGenerada, eventosGrandStay } from '../../services/eventos.service.js';
 
@@ -63,5 +63,10 @@ describe('HU-B06 checkout.service', () => {
     expect(payload.formato).toBe('pdf');
     expect(payload.archivo).toBe('FAC-1.pdf');
     expect(payload.contenido_base64).toBeTruthy();
+  });
+
+  test('rechaza checkout cuando no existe tarifa activa', () => {
+    expect(() => validarTarifaParaCheckout(null)).toThrow('No existe una tarifa activa');
+    expect(() => validarTarifaParaCheckout({ precio_noche: 0 })).toThrow('No existe una tarifa activa');
   });
 });

@@ -138,4 +138,25 @@ describe('HU-B06 checkout flujo activo', () => {
     expect(conn.commit).not.toHaveBeenCalled();
     expect(conn.rollback).toHaveBeenCalled();
   });
+
+  test('no procesa checkout cuando no hay tarifa activa', async () => {
+    const conn = {
+      beginTransaction: jest.fn().mockResolvedValue(),
+      execute: jest.fn()
+        .mockResolvedValueOnce([[reservaActiva]])
+        .mockResolvedValueOnce([[]]),
+      commit: jest.fn().mockResolvedValue(),
+      rollback: jest.fn().mockResolvedValue(),
+      release: jest.fn(),
+    };
+    getConnection.mockResolvedValue(conn);
+
+    await expect(registrarCheckout(42, { idRecepcionista: 1 }))
+      .rejects.toMatchObject({ codigo: 'ENTIDAD_NO_PROCESABLE', statusCode: 422 });
+
+    expect(cobrarSaldo).not.toHaveBeenCalled();
+    expect(cambiarEstadoHabitacionEnTransaccion).not.toHaveBeenCalled();
+    expect(conn.commit).not.toHaveBeenCalled();
+    expect(conn.rollback).toHaveBeenCalled();
+  });
 });
