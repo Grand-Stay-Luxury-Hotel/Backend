@@ -1,6 +1,11 @@
 // src/services/checkout.service.js
 import { getConnection } from '../utils/db.js';
-import { CheckoutDuplicadoError, ReservaEstadoInvalidoError, ReservaNoEncontradaError } from '../utils/errors.js';
+import {
+  CheckoutDuplicadoError,
+  ParametrosInvalidosError,
+  ReservaEstadoInvalidoError,
+  ReservaNoEncontradaError,
+} from '../utils/errors.js';
 import { cobrarSaldo } from './pasarela.service.js';
 import { emitirFacturaGenerada } from './eventos.service.js';
 import { logAudit } from '../middleware/audit.middleware.js';
@@ -9,6 +14,7 @@ import { cambiarEstadoHabitacionEnTransaccion } from './habitaciones.service.js'
 export const ESTADO_RESERVA_CHECKOUT = 'completada';
 export const ESTADO_HABITACION_POST_CHECKOUT = 'limpieza';
 export const ESTADOS_RESERVA_PERMITIDOS_CHECKOUT = new Set(['en_curso']);
+export const ESTADOS_HABITACION_CHECKOUT = new Set(['bueno', 'danos_menores', 'danos_graves', 'pendiente_revision']);
 
 export function diffDias(fechaEntrada, fechaSalida) {
   const entrada = new Date(`${fechaEntrada}T00:00:00Z`);
@@ -57,6 +63,16 @@ export function validarEstadoReservaParaCheckout(estado, tieneCheckin) {
   }
 }
 
+export function normalizarEstadoHabitacionCheckout(estado) {
+  const normalizado = String(estado ?? 'pendiente_revision').trim().toLowerCase();
+  if (!ESTADOS_HABITACION_CHECKOUT.has(normalizado)) {
+    throw new ParametrosInvalidosError(
+      `estado_habitacion invalido. Valores permitidos: ${Array.from(ESTADOS_HABITACION_CHECKOUT).join(', ')}`,
+    );
+  }
+  return normalizado;
+}
+
 /* istanbul ignore next */
 async function encolarEnvioFactura(conn, { reserva, numeroFactura, facturaElectronica }) {
   const [resultado] = await conn.execute(
@@ -86,6 +102,7 @@ export async function registrarCheckout(idReserva, contexto = {}) {
   const conn = await getConnection();
   try {
     await conn.beginTransaction();
+    const estadoHabitacionCheckout = normalizarEstadoHabitacionCheckout(contexto.estadoHabitacionCheckout);
 
     const [[reserva]] = await conn.execute(
       `
@@ -171,7 +188,7 @@ export async function registrarCheckout(idReserva, contexto = {}) {
         idCheckin: reserva.id_checkin,
         idRecepcionista: contexto.idRecepcionista,
         totalCobrado: liquidacion.total,
-        estadoHabitacion: ESTADO_HABITACION_POST_CHECKOUT,
+        estadoHabitacion: estadoHabitacionCheckout,
         cargosAdicionales: liquidacion.total_consumos,
         observaciones: contexto.observaciones ?? null,
       },
@@ -250,6 +267,7 @@ export async function registrarCheckout(idReserva, contexto = {}) {
       id_notificacion: idNotificacion,
       estado_reserva: ESTADO_RESERVA_CHECKOUT,
       estado_habitacion: cambioHabitacion.estado_nuevo,
+      estado_habitacion_checkout: estadoHabitacionCheckout,
       mensaje: 'Check-out procesado exitosamente',
     };
   } catch (error) {
