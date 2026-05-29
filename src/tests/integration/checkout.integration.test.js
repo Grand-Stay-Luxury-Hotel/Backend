@@ -4,7 +4,13 @@ import request from 'supertest';
 import { jest } from '@jest/globals';
 import { registrarCheckout } from '../../services/checkout.service.js';
 import { createApp } from '../../app.js';
-import { CheckoutDuplicadoError, PagoRechazadoError, ReservaEstadoInvalidoError, ReservaNoEncontradaError } from '../../utils/errors.js';
+import {
+  CheckoutDuplicadoError,
+  PagoRechazadoError,
+  ParametrosInvalidosError,
+  ReservaEstadoInvalidoError,
+  ReservaNoEncontradaError,
+} from '../../utils/errors.js';
 
 jest.mock('../../services/checkout.service.js', () => ({
   registrarCheckout: jest.fn(),
@@ -50,6 +56,39 @@ describe('Integracion HU-B06 check-out', () => {
     return request(app).post('/checkout/42').set('Authorization', `Bearer ${token('Recepcionista')}`).send({}).expect(402);
   });
 
+  test('POST /checkout/:reservaId envia estado_habitacion al servicio', async () => {
+    registrarCheckout.mockResolvedValue({ id_checkout: 8, resumen_factura: {}, estado_habitacion_checkout: 'bueno' });
+
+    await request(app)
+      .post('/checkout/42')
+      .set('Authorization', `Bearer ${token('Recepcionista')}`)
+      .send({ estado_habitacion: 'bueno', observaciones: 'Salida realizada correctamente' })
+      .expect(200);
+
+    expect(registrarCheckout).toHaveBeenCalledWith(
+      '42',
+      expect.objectContaining({
+        estadoHabitacionCheckout: 'bueno',
+        observaciones: 'Salida realizada correctamente',
+      }),
+    );
+  });
+
+  test('POST /checkout/:reservaId acepta alias estadoHabitacion', async () => {
+    registrarCheckout.mockResolvedValue({ id_checkout: 8, resumen_factura: {}, estado_habitacion_checkout: 'danos_menores' });
+
+    await request(app)
+      .post('/checkout/42')
+      .set('Authorization', `Bearer ${token('Recepcionista')}`)
+      .send({ estadoHabitacion: 'danos_menores' })
+      .expect(200);
+
+    expect(registrarCheckout).toHaveBeenCalledWith(
+      '42',
+      expect.objectContaining({ estadoHabitacionCheckout: 'danos_menores' }),
+    );
+  });
+
   test('POST /checkout/:reservaId con reserva inexistente retorna 404', () => {
     registrarCheckout.mockRejectedValue(new ReservaNoEncontradaError());
     return request(app).post('/checkout/999').set('Authorization', `Bearer ${token('Recepcionista')}`).send({}).expect(404);
@@ -58,6 +97,15 @@ describe('Integracion HU-B06 check-out', () => {
   test('POST /checkout/:reservaId sin estadia activa retorna 400', () => {
     registrarCheckout.mockRejectedValue(new ReservaEstadoInvalidoError('Solo se puede registrar check-out para reservas con estadia activa'));
     return request(app).post('/checkout/42').set('Authorization', `Bearer ${token('Recepcionista')}`).send({}).expect(400);
+  });
+
+  test('POST /checkout/:reservaId con estado_habitacion invalido retorna 400', () => {
+    registrarCheckout.mockRejectedValue(new ParametrosInvalidosError('estado_habitacion invalido'));
+    return request(app)
+      .post('/checkout/42')
+      .set('Authorization', `Bearer ${token('Recepcionista')}`)
+      .send({ estado_habitacion: 'limpieza' })
+      .expect(400);
   });
 
   test('POST /checkout/:reservaId duplicado retorna 409', () => {

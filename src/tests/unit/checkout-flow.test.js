@@ -8,6 +8,7 @@ import { cambiarEstadoHabitacionEnTransaccion } from '../../services/habitacione
 import {
   ESTADO_HABITACION_POST_CHECKOUT,
   ESTADO_RESERVA_CHECKOUT,
+  normalizarEstadoHabitacionCheckout,
   registrarCheckout,
   validarEstadoReservaParaCheckout,
 } from '../../services/checkout.service.js';
@@ -82,13 +83,19 @@ describe('HU-B06 checkout flujo activo', () => {
       idRecepcionista: 1,
       userId: 2,
       rol: 'Recepcionista',
+      estadoHabitacionCheckout: 'bueno',
     });
 
     expect(resultado).toMatchObject({
       id_checkout: 20,
       estado_reserva: ESTADO_RESERVA_CHECKOUT,
       estado_habitacion: ESTADO_HABITACION_POST_CHECKOUT,
+      estado_habitacion_checkout: 'bueno',
     });
+    expect(conn.execute).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO checkout'),
+      expect.objectContaining({ estadoHabitacion: 'bueno' }),
+    );
     expect(conn.execute).toHaveBeenCalledWith(
       'UPDATE reservas SET estado = :estado WHERE id_reserva = :idReserva',
       { estado: ESTADO_RESERVA_CHECKOUT, idReserva: 42 },
@@ -101,6 +108,14 @@ describe('HU-B06 checkout flujo activo', () => {
     );
     expect(conn.commit).toHaveBeenCalled();
     expect(conn.rollback).not.toHaveBeenCalled();
+  });
+
+  test('valida estado_habitacion del registro de checkout', () => {
+    expect(normalizarEstadoHabitacionCheckout('bueno')).toBe('bueno');
+    expect(normalizarEstadoHabitacionCheckout('DANOS_MENORES')).toBe('danos_menores');
+    expect(normalizarEstadoHabitacionCheckout()).toBe('pendiente_revision');
+    expect(() => normalizarEstadoHabitacionCheckout('limpieza'))
+      .toThrow('estado_habitacion invalido');
   });
 
   test('rechaza reservas sin estadia activa', () => {

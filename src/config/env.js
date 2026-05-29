@@ -1,4 +1,6 @@
 // src/config/env.js
+import fs from 'fs';
+
 const PLACEHOLDER_VALUES = new Set([
   'your_password',
   'your_jwt_secret_min_32_chars',
@@ -57,9 +59,14 @@ export function getDbSslConfig() {
     return undefined;
   }
 
+  let ca = process.env.DB_SSL_CA;
+  if (isBlank(ca) && !isBlank(process.env.DB_SSL_CA_PATH)) {
+    ca = fs.readFileSync(process.env.DB_SSL_CA_PATH, 'utf8');
+  }
+
   return {
     rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
-    ca: isBlank(process.env.DB_SSL_CA) ? undefined : process.env.DB_SSL_CA,
+    ca: isBlank(ca) ? undefined : ca,
   };
 }
 

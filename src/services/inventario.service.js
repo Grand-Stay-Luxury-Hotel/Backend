@@ -3,9 +3,20 @@ import { getConnection, query } from '../utils/db.js';
 import { ParametrosInvalidosError, RecursoNoEncontradoError } from '../utils/errors.js';
 import { logAudit } from '../middleware/audit.middleware.js';
 
+export function normalizarIdPositivo(valor, nombreCampo) {
+  const numero = Number(valor);
+  if (!Number.isInteger(numero) || numero <= 0) {
+    throw new ParametrosInvalidosError(`${nombreCampo} debe ser un numero entero positivo`);
+  }
+  return numero;
+}
+
 export function calcularStockResultante(stockActual, cantidadConsumida) {
   const stock = Number(stockActual);
   const cantidad = Number(cantidadConsumida);
+  if (!Number.isFinite(stock) || stock < 0) {
+    throw new ParametrosInvalidosError('El stock actual debe ser un numero mayor o igual a cero');
+  }
   if (!Number.isFinite(cantidad) || cantidad <= 0) {
     throw new ParametrosInvalidosError('La cantidad consumida debe ser mayor a cero');
   }
@@ -19,6 +30,21 @@ export function clasificarCriticidad(stock, umbral) {
   if (Number(stock) <= Number(umbral) / 2) return 'critica';
   if (Number(stock) <= Number(umbral)) return 'alta';
   return 'normal';
+}
+
+export function normalizarPaginacionInventario({ pagina = 1, limite = 50 } = {}) {
+  const paginaNormalizada = Number(pagina);
+  const limiteNormalizado = Number(limite);
+
+  if (!Number.isInteger(paginaNormalizada) || paginaNormalizada < 1) {
+    throw new ParametrosInvalidosError('La pagina debe ser un numero entero mayor o igual a uno');
+  }
+
+  if (!Number.isInteger(limiteNormalizado) || limiteNormalizado < 1 || limiteNormalizado > 100) {
+    throw new ParametrosInvalidosError('El limite debe ser un numero entero entre 1 y 100');
+  }
+
+  return { pagina: paginaNormalizada, limite: limiteNormalizado };
 }
 
 export function crearAlertaStock({ insumo, stockResultante, habitacionId, criticidad }) {
@@ -41,14 +67,26 @@ export async function registrarConsumoInventario(payload, contexto = {}) {
       throw new ParametrosInvalidosError('insumoId, cantidad y habitacionId son obligatorios');
     }
 
+    const idInsumo = normalizarIdPositivo(payload.insumoId, 'insumoId');
+    const idHabitacion = normalizarIdPositivo(payload.habitacionId, 'habitacionId');
+
     await conn.beginTransaction();
     const [[insumo]] = await conn.execute(
       'SELECT id_insumo, nombre, stock_actual, stock_minimo FROM insumos_limpieza WHERE id_insumo = :idInsumo FOR UPDATE',
-      { idInsumo: payload.insumoId },
+      { idInsumo },
     );
 
     if (!insumo) {
       throw new RecursoNoEncontradoError('El insumo solicitado no existe');
+    }
+
+    const [[habitacion]] = await conn.execute(
+      'SELECT id_habitacion FROM habitaciones WHERE id_habitacion = :idHabitacion LIMIT 1',
+      { idHabitacion },
+    );
+
+    if (!habitacion) {
+      throw new RecursoNoEncontradoError('La habitacion solicitada no existe');
     }
 
     const stockResultante = calcularStockResultante(insumo.stock_actual, payload.cantidad);
@@ -65,6 +103,16 @@ export async function registrarConsumoInventario(payload, contexto = {}) {
       throw new ParametrosInvalidosError('idPersonal es obligatorio para registrar consumo de insumos');
     }
 
+    idPersonal = normalizarIdPositivo(idPersonal, 'idPersonal');
+    const [[personalExistente]] = await conn.execute(
+      'SELECT id_personal FROM personal_limpieza WHERE id_personal = :idPersonal LIMIT 1',
+      { idPersonal },
+    );
+
+    if (!personalExistente) {
+      throw new RecursoNoEncontradoError('El personal de limpieza solicitado no existe');
+    }
+
     await conn.execute(
       `
         INSERT INTO consumo_insumos
@@ -74,8 +122,8 @@ export async function registrarConsumoInventario(payload, contexto = {}) {
       `,
       {
         idPersonal,
-        idInsumo: payload.insumoId,
-        idHabitacion: payload.habitacionId,
+        idInsumo,
+        idHabitacion,
         tipoTarea: payload.tipoTarea ?? 'limpieza_rutina',
         cantidad: Number(payload.cantidad),
         observaciones: payload.observaciones ?? null,
@@ -84,7 +132,7 @@ export async function registrarConsumoInventario(payload, contexto = {}) {
 
     await conn.execute(
       'UPDATE insumos_limpieza SET stock_actual = :stockActual WHERE id_insumo = :idInsumo',
-      { stockActual: stockResultante, idInsumo: payload.insumoId },
+      { stockActual: stockResultante, idInsumo },
     );
 
     let alerta = null;
@@ -93,7 +141,7 @@ export async function registrarConsumoInventario(payload, contexto = {}) {
       const detalleAlerta = crearAlertaStock({
         insumo,
         stockResultante,
-        habitacionId: payload.habitacionId,
+        habitacionId: idHabitacion,
         criticidad,
       });
       const [resultadoAlerta] = await conn.execute(
@@ -116,11 +164,11 @@ export async function registrarConsumoInventario(payload, contexto = {}) {
       userId: contexto.userId ?? null,
       accion: 'UPDATE',
       tablaAfectada: 'insumos_limpieza',
-      idRegistro: Number(payload.insumoId),
+      idRegistro: idInsumo,
       valorAnterior: { stock_actual: Number(insumo.stock_actual) },
       valorNuevo: {
         stock_actual: stockResultante,
-        id_habitacion: Number(payload.habitacionId),
+        id_habitacion: idHabitacion,
         cantidad_consumida: Number(payload.cantidad),
         alerta_generada: Boolean(alerta),
       },
@@ -129,7 +177,7 @@ export async function registrarConsumoInventario(payload, contexto = {}) {
     });
 
     await conn.commit();
-    return { id_insumo: Number(payload.insumoId), stock_actual: stockResultante, alerta, mensaje: 'Consumo de inventario registrado' };
+    return { id_insumo: idInsumo, stock_actual: stockResultante, alerta, mensaje: 'Consumo de inventario registrado' };
   } catch (error) {
     await conn.rollback();
     throw error;
@@ -140,7 +188,8 @@ export async function registrarConsumoInventario(payload, contexto = {}) {
 
 /* istanbul ignore next */
 export async function listarAlertasInventario({ pagina = 1, limite = 50 } = {}) {
-  const offset = (Math.max(pagina, 1) - 1) * Math.min(Math.max(limite, 1), 100);
+  const paginacion = normalizarPaginacionInventario({ pagina, limite });
+  const offset = (paginacion.pagina - 1) * paginacion.limite;
 
   const [[{ total }]] = await query(
     `SELECT COUNT(*) AS total FROM notificaciones WHERE evento = 'alerta_stock' AND estado = 'pendiente'`,
@@ -170,13 +219,14 @@ export async function listarAlertasInventario({ pagina = 1, limite = 50 } = {}) 
       ), id_notificacion ASC
       LIMIT :limite OFFSET :offset
     `,
-    { limite, offset },
+    { limite: paginacion.limite, offset },
   );
-  return { data: alertas, total, pagina, limite };
+  return { data: alertas, total, pagina: paginacion.pagina, limite: paginacion.limite };
 }
 
 /* istanbul ignore next */
 export async function actualizarUmbralInventario(idInsumo, umbral, contexto = {}) {
+  const idInsumoNormalizado = normalizarIdPositivo(idInsumo, 'idInsumo');
   if (!Number.isFinite(Number(umbral)) || Number(umbral) < 0) {
     throw new ParametrosInvalidosError('El umbral debe ser un numero mayor o igual a cero');
   }
@@ -185,7 +235,7 @@ export async function actualizarUmbralInventario(idInsumo, umbral, contexto = {}
     await conn.beginTransaction();
     const [[insumo]] = await conn.execute(
       'SELECT id_insumo, stock_minimo FROM insumos_limpieza WHERE id_insumo = :idInsumo FOR UPDATE',
-      { idInsumo },
+      { idInsumo: idInsumoNormalizado },
     );
 
     if (!insumo) {
@@ -194,14 +244,14 @@ export async function actualizarUmbralInventario(idInsumo, umbral, contexto = {}
 
     await conn.execute(
       'UPDATE insumos_limpieza SET stock_minimo = :umbral WHERE id_insumo = :idInsumo',
-      { umbral: Number(umbral), idInsumo },
+      { umbral: Number(umbral), idInsumo: idInsumoNormalizado },
     );
     await logAudit({
       conn,
       userId: contexto.userId ?? null,
       accion: 'UPDATE',
       tablaAfectada: 'insumos_limpieza',
-      idRegistro: Number(idInsumo),
+      idRegistro: idInsumoNormalizado,
       valorAnterior: { stock_minimo: Number(insumo.stock_minimo) },
       valorNuevo: { stock_minimo: Number(umbral) },
       ip: contexto.ip ?? null,
@@ -209,7 +259,7 @@ export async function actualizarUmbralInventario(idInsumo, umbral, contexto = {}
     });
 
     await conn.commit();
-    return { id_insumo: Number(idInsumo), stock_minimo: Number(umbral), mensaje: 'Umbral actualizado' };
+    return { id_insumo: idInsumoNormalizado, stock_minimo: Number(umbral), mensaje: 'Umbral actualizado' };
   } catch (error) {
     await conn.rollback();
     throw error;

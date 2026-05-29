@@ -13,6 +13,12 @@ import { EntidadNoProcesableError } from '../../utils/errors.js';
 jest.mock('../../services/habitaciones.service.js', () => ({
   cambiarEstadoHabitacion: jest.fn(),
   listarHabitaciones: jest.fn(),
+  normalizarEstado: jest.fn((estado) => {
+    const normalizado = String(estado ?? '').trim().toLowerCase().replace('en ', '');
+    return ['disponible', 'ocupada', 'mantenimiento', 'limpieza', 'bloqueada'].includes(normalizado)
+      ? normalizado
+      : null;
+  }),
 }));
 
 jest.mock('../../services/huespedes.service.js', () => ({
@@ -61,6 +67,22 @@ describe('Integracion HU-B07 a HU-B12', () => {
       .expect((res) => expect(res.body.estado_nuevo).toBe('limpieza'));
   });
 
+  test('PATCH /habitaciones/:id/estado normaliza estado de mantenimiento', async () => {
+    cambiarEstadoHabitacion.mockResolvedValue({ id_habitacion: 1, estado_nuevo: 'mantenimiento' });
+
+    await request(app)
+      .patch('/habitaciones/1/estado')
+      .set('Authorization', `Bearer ${token('Recepcionista')}`)
+      .send({ estado: 'En Mantenimiento' })
+      .expect(200);
+
+    expect(cambiarEstadoHabitacion).toHaveBeenCalledWith(
+      '1',
+      'mantenimiento',
+      expect.objectContaining({ rol: 'Recepcionista' }),
+    );
+  });
+
   test('GET /huespedes permite buscar huespedes para selectores del frontend', () => {
     buscarHuespedes.mockResolvedValue({
       data: [{ id_huesped: 1, nombre_completo: 'Sofia Torres', email: 'huesped1@grandstay.com' }],
@@ -103,6 +125,19 @@ describe('Integracion HU-B07 a HU-B12', () => {
       .expect(201);
   });
 
+  test('POST /inventario/consumo con datos invalidos retorna 400', () => {
+    const error = new Error('insumoId, cantidad y habitacionId son obligatorios');
+    error.codigo = 'PARAMETROS_INVALIDOS';
+    error.statusCode = 400;
+    registrarConsumoInventario.mockRejectedValue(error);
+
+    return request(app)
+      .post('/inventario/consumo')
+      .set('Authorization', `Bearer ${token('Limpieza')}`)
+      .send({ insumoId: 1 })
+      .expect(400);
+  });
+
   test('GET /inventario/alertas solo administrador', () => {
     listarAlertasInventario.mockResolvedValue({ data: [], total: 0 });
     return request(app)
@@ -111,6 +146,11 @@ describe('Integracion HU-B07 a HU-B12', () => {
       .expect(200);
   });
 
+  test('GET /inventario/alertas bloquea rol no administrador', () => request(app)
+    .get('/inventario/alertas')
+    .set('Authorization', `Bearer ${token('Recepcionista')}`)
+    .expect(403));
+
   test('PATCH /inventario/:id/umbral actualiza umbral', () => {
     actualizarUmbralInventario.mockResolvedValue({ id_insumo: 1, stock_minimo: 10 });
     return request(app)
@@ -118,6 +158,19 @@ describe('Integracion HU-B07 a HU-B12', () => {
       .set('Authorization', `Bearer ${token('Administrador')}`)
       .send({ umbral: 10 })
       .expect(200);
+  });
+
+  test('PATCH /inventario/:id/umbral invalido retorna 400', () => {
+    const error = new Error('El umbral debe ser un numero mayor o igual a cero');
+    error.codigo = 'PARAMETROS_INVALIDOS';
+    error.statusCode = 400;
+    actualizarUmbralInventario.mockRejectedValue(error);
+
+    return request(app)
+      .patch('/inventario/1/umbral')
+      .set('Authorization', `Bearer ${token('Administrador')}`)
+      .send({ umbral: -1 })
+      .expect(400);
   });
 
   test('GET /reportes/ocupacion retorna reporte mensual', () => {

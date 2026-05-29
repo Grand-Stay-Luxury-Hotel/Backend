@@ -1,4 +1,10 @@
-import { calcularStockResultante, clasificarCriticidad, crearAlertaStock } from '../../services/inventario.service.js';
+import {
+  calcularStockResultante,
+  clasificarCriticidad,
+  crearAlertaStock,
+  normalizarIdPositivo,
+  normalizarPaginacionInventario,
+} from '../../services/inventario.service.js';
 
 describe('HU-B11 inventario.service', () => {
   test('descuenta stock correctamente', () => {
@@ -32,6 +38,28 @@ describe('HU-B11 inventario.service', () => {
     }
     expect(errorCantidad.statusCode).toBe(400);
     expect(errorStock.statusCode).toBe(400);
+  });
+
+  test('rechaza stock actual invalido', () => {
+    expect(() => calcularStockResultante('abc', 1))
+      .toThrow('stock actual');
+  });
+
+  test('valida identificadores positivos', () => {
+    expect(normalizarIdPositivo('10', 'insumoId')).toBe(10);
+    expect(() => normalizarIdPositivo('abc', 'insumoId'))
+      .toThrow('insumoId debe ser un numero entero positivo');
+    expect(() => normalizarIdPositivo(0, 'habitacionId'))
+      .toThrow('habitacionId debe ser un numero entero positivo');
+  });
+
+  test('normaliza paginacion de alertas', () => {
+    expect(normalizarPaginacionInventario({ pagina: '2', limite: '25' }))
+      .toEqual({ pagina: 2, limite: 25 });
+    expect(() => normalizarPaginacionInventario({ pagina: 0, limite: 25 }))
+      .toThrow('pagina debe ser');
+    expect(() => normalizarPaginacionInventario({ pagina: 1, limite: 101 }))
+      .toThrow('limite debe ser');
   });
 
   test('crea detalle de alerta pendiente con habitacion afectada', () => {

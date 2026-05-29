@@ -1,5 +1,5 @@
 // src/controllers/habitaciones.controller.js
-import { cambiarEstadoHabitacion, listarHabitaciones } from '../services/habitaciones.service.js';
+import { cambiarEstadoHabitacion, listarHabitaciones, normalizarEstado } from '../services/habitaciones.service.js';
 import { ParametrosInvalidosError } from '../utils/errors.js';
 
 function crearContexto(req) {
@@ -25,9 +25,9 @@ export async function getHabitaciones(req, res, next) {
 
 export async function patchEstadoHabitacion(req, res, next) {
   try {
-    const estado = req.body?.estado;
-    if (!estado || !ESTADOS_VALIDOS.includes(estado)) {
-      throw new ParametrosInvalidosError(`Estado inválido. Válidos: ${ESTADOS_VALIDOS.join(', ')}`);
+    const estado = normalizarEstado(req.body?.estado);
+    if (!estado) {
+      throw new ParametrosInvalidosError(`Estado invalido. Validos: ${ESTADOS_VALIDOS.join(', ')}`);
     }
     const resultado = await cambiarEstadoHabitacion(req.params.id, estado, crearContexto(req));
     res.status(200).json(resultado);
