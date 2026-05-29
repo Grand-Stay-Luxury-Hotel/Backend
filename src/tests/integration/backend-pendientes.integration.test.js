@@ -8,7 +8,7 @@ import { registrarConsumo } from '../../services/consumos.service.js';
 import { login } from '../../services/auth.service.js';
 import { actualizarUmbralInventario, listarAlertasInventario, registrarConsumoInventario } from '../../services/inventario.service.js';
 import { obtenerReporteIngresos, obtenerReporteOcupacion } from '../../services/reportes.service.js';
-import { EntidadNoProcesableError } from '../../utils/errors.js';
+import { EntidadNoProcesableError, ParametrosInvalidosError } from '../../utils/errors.js';
 
 jest.mock('../../services/habitaciones.service.js', () => ({
   cambiarEstadoHabitacion: jest.fn(),
@@ -181,11 +181,24 @@ describe('Integracion HU-B07 a HU-B12', () => {
       .expect(200);
   });
 
+  test('GET /reportes/ocupacion bloquea rol no administrador', () => request(app)
+    .get('/reportes/ocupacion?mes=5&anio=2026')
+    .set('Authorization', `Bearer ${token('Recepcionista')}`)
+    .expect(403));
+
   test('GET /reportes/ingresos retorna ingresos agregados', () => {
     obtenerReporteIngresos.mockResolvedValue({ data: { habitaciones: [], servicios_adicionales: [] } });
     return request(app)
       .get('/reportes/ingresos')
       .set('Authorization', `Bearer ${token('Administrador')}`)
       .expect(200);
+  });
+
+  test('GET /reportes/ingresos con rango invalido retorna 400', () => {
+    obtenerReporteIngresos.mockRejectedValue(new ParametrosInvalidosError('fechaInicio debe ser anterior a fechaFin'));
+    return request(app)
+      .get('/reportes/ingresos?fechaInicio=2026-06-01&fechaFin=2026-05-01')
+      .set('Authorization', `Bearer ${token('Administrador')}`)
+      .expect(400);
   });
 });

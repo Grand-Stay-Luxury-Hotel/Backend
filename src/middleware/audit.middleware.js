@@ -6,6 +6,20 @@ function crearHash(payload) {
   return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }
 
+function sanitizarValorAuditoria(valor) {
+  if (valor === null || valor === undefined) return valor;
+  if (Array.isArray(valor)) return valor.map((item) => sanitizarValorAuditoria(item));
+  if (typeof valor !== 'object') return valor;
+
+  const camposSensibles = new Set(['authorization', 'password', 'password_hash', 'token', 'token_pago']);
+  return Object.fromEntries(
+    Object.entries(valor).map(([clave, contenido]) => [
+      clave,
+      camposSensibles.has(clave.toLowerCase()) ? '[REDACTADO]' : sanitizarValorAuditoria(contenido),
+    ]),
+  );
+}
+
 export async function logAudit({
   conn = null,
   userId = null,
@@ -18,17 +32,19 @@ export async function logAudit({
   userAgent = null,
 }) {
   const timestamp = new Date().toISOString();
+  const valorAnteriorSanitizado = sanitizarValorAuditoria(valorAnterior);
+  const valorNuevoSanitizado = sanitizarValorAuditoria(valorNuevo);
   const hashIntegridad = crearHash({
     userId,
     accion,
     tablaAfectada,
     idRegistro,
-    valorAnterior,
-    valorNuevo,
+    valorAnterior: valorAnteriorSanitizado,
+    valorNuevo: valorNuevoSanitizado,
     timestamp,
   });
   const datosNuevos = {
-    ...(valorNuevo ?? {}),
+    ...(valorNuevoSanitizado ?? {}),
     timestamp_auditoria: timestamp,
     hash_integridad: hashIntegridad,
     repositorio_integridad: {
@@ -49,7 +65,7 @@ export async function logAudit({
     tablaAfectada,
     accion,
     idRegistro,
-    valorAnterior: valorAnterior === null ? null : JSON.stringify(valorAnterior),
+    valorAnterior: valorAnteriorSanitizado === null ? null : JSON.stringify(valorAnteriorSanitizado),
     valorNuevo: JSON.stringify(datosNuevos),
     ip,
     userAgent,

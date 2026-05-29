@@ -3,6 +3,7 @@ import {
   construirRangoMensual,
   normalizarIngresoHabitacion,
   validarPeriodo,
+  validarRangoFechas,
   validarVentanaMeses,
 } from '../../services/reportes.service.js';
 
@@ -36,6 +37,16 @@ describe('HU-B12 reportes.service', () => {
   test('normaliza ingreso de habitacion sin restar impuestos', () => {
     expect(normalizarIngresoHabitacion({ subtotalAlojamiento: 450000, subtotalFactura: 535500, subtotalServicios: 0 })).toBe(450000);
     expect(normalizarIngresoHabitacion({ subtotalAlojamiento: 0, subtotalFactura: 1235000, subtotalServicios: 115000 })).toBe(1120000);
+  });
+
+  test('valida rangos de fecha para ingresos', () => {
+    expect(validarRangoFechas('2026-05-01', '2026-06-01')).toEqual({
+      fechaInicio: '2026-05-01',
+      fechaFin: '2026-06-01',
+    });
+    expect(() => validarRangoFechas('2026-05-01', null)).toThrow('deben enviarse juntas');
+    expect(() => validarRangoFechas('2026-99-01', '2026-06-01')).toThrow('formato YYYY-MM-DD');
+    expect(() => validarRangoFechas('2026-06-01', '2026-05-01')).toThrow('debe ser anterior');
   });
 
   test('rechaza mes fuera de rango', () => {
