@@ -1,383 +1,235 @@
-﻿# Grand-Stay · Backend
+# Grand Stay Backend
 
-API REST del sistema de gestión hotelera **Grand Stay**. Implementa las historias de usuario HU-B01 a HU-B12 con Node.js 20, Express, JWT, MySQL/MariaDB y cobertura de pruebas con Jest.
-
----
-
-## Tabla de contenidos
-
-- [Alcance implementado](#alcance-implementado)
-- [Requisitos](#requisitos)
-- [Configuración local](#configuración-local)
-- [Docker](#docker)
-- [Referencia de endpoints](#referencia-de-endpoints)
-- [Roles y autorización](#roles-y-autorización)
-- [Auditoría](#auditoría)
-- [Pruebas](#pruebas)
-
----
-
-## Alcance implementado
-
-| HU     | Funcionalidad                                       | Estado       |
-|--------|-----------------------------------------------------|--------------|
-| HU-B01 | Consulta de disponibilidad en tiempo real           | ✅ Implementada |
-| HU-B02 | Creación de reserva con anticipo                    | ✅ Implementada |
-| HU-B03 | Prevención de overbooking                           | ✅ Implementada |
-| HU-B04 | Cancelación de reserva con política de penalización | ✅ Implementada |
-| HU-B05 | Registro de check-in                                | ✅ Implementada |
-| HU-B06 | Registro de check-out y liquidación                 | ✅ Implementada |
-| HU-B07 | Gestión de estados de habitación                    | ✅ Implementada |
-| HU-B08 | Registro de consumos adicionales                    | ✅ Implementada |
-| HU-B09 | Autenticación y control de roles (+ registro de huéspedes) | ✅ Implementada |
-| HU-B10 | Log de auditoría de operaciones críticas            | ✅ Implementada |
-| HU-B11 | Gestión de inventario con alerta de stock           | ✅ Implementada |
-| HU-B12 | Reportes estadísticos mensuales                     | ✅ Implementada |
-
----
+API REST para la gestion hotelera de Grand Stay. Usa Node.js 20, Express, JWT, MySQL/MariaDB y pruebas con Jest.
 
 ## Requisitos
 
- codex-backend-seed-data
-- Node.js 20 o superior
-- MySQL o MariaDB
-- Base de datos creada desde `grandstay_db.sql`
-- Datos de prueba compartidos en `database/seed-data.sql`
-=======
-- **Node.js** 20 o superior
-- **MySQL** 8 o **MariaDB** 10.6+
-- Base de datos inicializada desde `grandstay_db.sql`
- main
+- Node.js 20 o superior.
+- MySQL 8 o MariaDB compatible.
+- Base de datos creada desde `database/grandstay_db.sql`.
+- Datos de prueba opcionales desde `database/seed-data.sql`.
 
----
-
-## Configuración local
-
-### 1. Instalar dependencias
+## Instalacion
 
 ```bash
 npm install
 ```
 
-### 2. Crear el archivo `.env`
+Crear `.env` a partir de `.env.example` y configurar al menos:
 
 ```env
-# Base de datos
 DB_HOST=localhost
 DB_PORT=3306
 DB_NAME=grandstay_db
 DB_USER=grandstay_user
-DB_PASSWORD=tu_password_seguro
+DB_PASSWORD=change_me
+DB_NAME_TEST=grandstay_test
 
-# JWT
-JWT_SECRET=minimo_32_caracteres_aqui_1234567890
+JWT_SECRET=change_me_min_32_chars_please_replace
 JWT_EXPIRES_IN=8h
-
-# OTP para Administrador (valor por defecto en desarrollo)
 ADMIN_OTP=123456
 
-# Servidor
-PORT=4000
-NODE_ENV=development
-
-# Pasarela de pago (mock)
 PAYMENT_GATEWAY_URL=https://api.pasarela-mock.com
 PAYMENT_GATEWAY_KEY=mock_key
+
+PORT=4000
+NODE_ENV=development
 ```
 
- codex-backend-seed-data
-3. Cargar los datos de prueba despues de crear el esquema:
+`JWT_SECRET` debe tener al menos 32 caracteres. El rol `Administrador` requiere `otp` al iniciar sesion.
+
+## Ejecucion
 
 ```bash
-mysql -u grandstay_user -p grandstay_db < database/seed-data.sql
-```
-
-4. Ejecutar el servidor:
-=======
-> **Advertencia de seguridad:** nunca uses los valores por defecto de `JWT_SECRET` ni `ADMIN_OTP` en producción.
-
-### 3. Levantar el servidor
- main
-
-```bash
-# Desarrollo (con hot-reload nativo de Node 20)
 npm run dev
-
-# Producción
-npm start
 ```
 
-El backend queda disponible en `http://localhost:4000`.
-
----
-
-## Docker
-
- Documentacion
-## Swagger / OpenAPI
-
-Con el servidor en ejecucion, la documentacion interactiva esta disponible en:
-
-- Swagger UI: `http://localhost:4000/api-docs`
-- Especificacion JSON: `http://localhost:4000/api-docs.json`
-
-## Endpoints Principales
-=======
-El servicio se containeriza de forma independiente. Ver [`DOCKER.md`](./DOCKER.md) para instrucciones completas.
-
-```powershell
-# Levantar
-docker compose up -d --build
-
-# Ver logs
-docker compose logs -f
-
-# Detener
-docker compose down
-```
-
-Variables de entorno configurables en un archivo `.env` junto a `docker-compose.yml`. La imagen base es `node:20-alpine` y el puerto expuesto es `4000`.
-
----
-
-## Referencia de endpoints
-
-Todos los endpoints protegidos requieren el header:
+El backend queda disponible en:
 
 ```http
-Authorization: Bearer <token>
+http://localhost:4000
 ```
- main
 
-### Salud
+Verificacion:
 
-| Método | Ruta      | Auth | Descripción                     |
-|--------|-----------|------|---------------------------------|
-| GET    | `/health` | No   | Verifica que el servidor esté activo |
+```http
+GET /health
+```
 
-### Autenticación
+## Swagger
 
-| Método | Ruta              | Auth | Descripción                            |
-|--------|-------------------|------|----------------------------------------|
-| POST   | `/auth/login`     | No   | Inicio de sesión para cualquier rol    |
-| POST   | `/auth/registro`  | No   | Registro de nuevo huésped (auto-login) |
+Con el servidor activo:
 
-**Body — `POST /auth/login`:**
+- UI: `http://localhost:4000/api-docs`
+- JSON: `http://localhost:4000/api-docs.json`
+
+## Frontend API
+
+La carpeta [`frontend-api`](./frontend-api) contiene:
+
+- `endpoints.js`: rutas organizadas por modulo, metodo, auth y roles.
+- `apiClient.js`: cliente base con soporte para JWT, query params y path params.
+- `README.md`: ejemplos cortos de consumo.
+
+El backend actual no usa prefijo `/api`. Ejemplo real:
+
+```http
+GET http://localhost:4000/reportes/ingresos
+```
+
+## Autenticacion
+
+Login:
+
+```http
+POST /auth/login
+```
+
+Body:
 
 ```json
 {
   "usuario": "admin@grandstay.com",
-  "password": "secreto",
+  "password": "<password>",
   "otp": "123456"
 }
 ```
 
-> El campo `otp` solo aplica para el rol `Administrador`.
+Registro de huesped:
 
-**Body — `POST /auth/registro`:**
+```http
+POST /auth/registro
+```
+
+Body:
 
 ```json
 {
   "nombre": "Juan",
-  "apellido": "García",
+  "apellido": "Garcia",
   "email": "juan@email.com",
-  "password": "minimo8chars",
+  "password": "Minimo8chars",
   "telefono": "+57 300 000 0000",
-  "documento_identidad": "1234567890"
+  "num_documento": "1234567890"
 }
 ```
 
-> `telefono` y `documento_identidad` son opcionales. Devuelve 201 con el token JWT del huésped recién creado.
+Endpoints protegidos:
 
-**Respuesta de ambos endpoints:**
-
-```json
-{
-  "token": "<jwt>",
-  "expira_en": "8h",
-  "usuario": {
-    "id_usuario": 1,
-    "email": "juan@email.com",
-    "rol": "Huesped",
-    "id_huesped": 1,
-    "id_recepcionista": null,
-    "id_personal": null,
-    "id_admin": null
-  }
-}
+```http
+Authorization: Bearer <token>
 ```
 
-### Habitaciones
+## Rutas principales
 
-| Método | Ruta                                  | Auth | Roles permitidos                |
-|--------|---------------------------------------|------|---------------------------------|
-| GET    | `/habitaciones`                       | Sí   | Recepcionista, Administrador, PersonalLimpieza |
-| GET    | `/habitaciones/disponibilidad`        | Sí   | Todos                           |
-| PATCH  | `/habitaciones/:id/estado`            | Sí   | Recepcionista, Administrador    |
+### Habitaciones y mantenimiento
 
-**Query params — listado operativo:**
+Mantenimiento no tiene ruta propia; se gestiona con estados de habitacion.
 
+| Metodo | Ruta | Roles |
+|---|---|---|
+| GET | `/habitaciones` | Recepcionista, Administrador, PersonalLimpieza |
+| GET | `/habitaciones/disponibilidad` | Recepcionista, Huesped |
+| PATCH | `/habitaciones/:id/estado` | PersonalLimpieza, Recepcionista, Administrador |
+
+Estados de habitacion:
+
+```text
+disponible, ocupada, limpieza, mantenimiento, bloqueada
 ```
-buscar=201&estado=ocupada&conReservaActiva=true&limite=50
-```
-
-Uso frontend: mostrar `numero_habitacion`, `tipo_nombre`, `estado`, `huesped_nombre` y enviar internamente `id_habitacion`.
-
-**Query params — disponibilidad:**
-
-```
-fechaEntrada=YYYY-MM-DD&fechaSalida=YYYY-MM-DD&tipo=Deluxe&capacidad=2
-```
-
-**Body — cambio de estado:**
-
-```json
-{
-  "estado": "limpieza",
-  "observaciones": "Habitación lista para limpieza"
-}
-```
-
-Estados válidos: `disponible` · `ocupada` · `mantenimiento` · `limpieza` · `bloqueada`
 
 ### Reservas
 
-| Método | Ruta             | Auth | Roles permitidos                          |
-|--------|------------------|------|-------------------------------------------|
-| GET    | `/reservas`      | Sí   | Recepcionista, Administrador              |
-| POST   | `/reservas`      | Sí   | Recepcionista, Administrador, Huesped     |
-| DELETE | `/reservas/:id`  | Sí   | Recepcionista, Administrador              |
+| Metodo | Ruta | Roles |
+|---|---|---|
+| GET | `/reservas` | Recepcionista, Administrador |
+| POST | `/reservas` | Recepcionista, Huesped |
+| DELETE | `/reservas/:id` | Recepcionista, Administrador |
 
-**Query params — listado operativo:**
+Estados usados:
 
-```
-buscar=Sofia&estado=confirmada&operacion=checkin&limite=50
-```
-
-Valores útiles de `operacion`:
-
-- `checkin`: reservas `confirmada`.
-- `checkout`: reservas `en_curso`.
-- `cancelacion`: reservas `pendiente`, `confirmada` o `en_curso`.
-
-Uso frontend: mostrar `codigo_confirmacion`, `huesped_nombre`, `numero_habitacion`, `fecha_entrada`, `fecha_salida` y enviar internamente `id_reserva`.
-
-### Huéspedes
-
-| Método | Ruta         | Auth | Roles permitidos             |
-|--------|--------------|------|------------------------------|
-| GET    | `/huespedes` | Sí   | Recepcionista, Administrador |
-
-**Query params — búsqueda:**
-
-```
-buscar=Sofia&limite=20
+```text
+pendiente, confirmada, en_curso, completada, cancelada, no_show
 ```
 
-Uso frontend: mostrar `nombre_completo`, `num_documento`, `email`, `telefono` y enviar internamente `id_huesped`.
+Crear una reserva no marca la habitacion como ocupada. La habitacion pasa a `ocupada` en check-in.
 
-### Check-in / Check-out
+### Check-in y checkout
 
-| Método | Ruta                   | Auth | Roles permitidos           |
-|--------|------------------------|------|----------------------------|
-| POST   | `/checkin/:reservaId`  | Sí   | Recepcionista, Administrador |
-| POST   | `/checkout/:reservaId` | Sí   | Recepcionista, Administrador |
+| Metodo | Ruta | Roles |
+|---|---|---|
+| POST | `/checkin/:reservaId` | Recepcionista |
+| POST | `/checkout/:reservaId` | Recepcionista |
 
-### Consumos adicionales
+Flujo esperado:
 
-| Método | Ruta        | Auth | Roles permitidos           |
-|--------|-------------|------|----------------------------|
-| POST   | `/consumos` | Sí   | Recepcionista              |
-
-**Body:**
-
-```json
-{
-  "habitacionId": 101,
-  "tipo": "restaurante",
-  "descripcion": "Cena habitación",
-  "cantidad": 1,
-  "precio_unitario": 85000
-}
+```text
+Reserva confirmada -> check-in -> reserva en_curso + habitacion ocupada
+Reserva en_curso -> checkout -> reserva completada + habitacion limpieza
 ```
 
-Tipos válidos: `restaurante` · `lavanderia` · `spa`
+Checkout acepta `estado_habitacion` o `estadoHabitacion` para el registro de salida:
+
+```text
+bueno, danos_menores, danos_graves, pendiente_revision
+```
+
+Ese valor es distinto del estado operativo de la habitacion, que queda en `limpieza`.
+
+### Consumos
+
+| Metodo | Ruta | Roles |
+|---|---|---|
+| POST | `/consumos` | Recepcionista |
+
+Tipos validos:
+
+```text
+restaurante, lavanderia, spa
+```
 
 ### Inventario
 
-| Método | Ruta                       | Auth | Roles permitidos                          |
-|--------|----------------------------|------|-------------------------------------------|
-| POST   | `/inventario/consumo`      | Sí   | Administrador, PersonalLimpieza           |
-| GET    | `/inventario/alertas`      | Sí   | Administrador, PersonalLimpieza           |
-| PATCH  | `/inventario/:id/umbral`   | Sí   | Administrador                             |
-
-**Body — consumo de insumo:**
-
-```json
-{
-  "insumoId": 1,
-  "habitacionId": 101,
-  "idPersonal": 1,
-  "cantidad": 2,
-  "tipoTarea": "limpieza_rutina"
-}
-```
+| Metodo | Ruta | Roles |
+|---|---|---|
+| POST | `/inventario/consumo` | Administrador, PersonalLimpieza |
+| GET | `/inventario/alertas` | Administrador |
+| PATCH | `/inventario/:id/umbral` | Administrador |
 
 ### Reportes
 
-| Método | Ruta                   | Auth | Roles permitidos  |
-|--------|------------------------|------|-------------------|
-| GET    | `/reportes/ocupacion`  | Sí   | Administrador     |
-| GET    | `/reportes/ingresos`   | Sí   | Administrador     |
+| Metodo | Ruta | Roles |
+|---|---|---|
+| GET | `/reportes/ocupacion` | Administrador |
+| GET | `/reportes/ingresos` | Administrador |
 
-**Query params:** `mes=5&anio=2026`
+Ejemplos:
 
----
+```http
+GET /reportes/ocupacion?mes=5&anio=2026&meses=1
+GET /reportes/ingresos?fechaInicio=2026-01-01&fechaFin=2026-12-31
+```
 
-## Roles y autorización
+Los reportes devuelven JSON. El campo `pdf_trigger`, si aparece en `exportable`, indica integracion pendiente; no existe generacion PDF directa en este backend.
 
-El middleware verifica el JWT y extrae el rol. Los roles definidos en la base de datos son:
+## Auditoria
 
-| Rol              | Descripción                                    |
-|------------------|------------------------------------------------|
-| `Administrador`  | Acceso total + OTP requerido en login          |
-| `Recepcionista`  | Operaciones del día a día (reservas, checkin…) |
-| `PersonalLimpieza` | Gestión de habitaciones e inventario         |
-| `Huesped`        | Consulta de disponibilidad y reservas propias  |
+Auditoria funciona como middleware/servicio interno. No existe endpoint HTTP publico.
 
----
-
-## Auditoría
-
-Las operaciones críticas quedan registradas en la tabla `log_auditoria` con los siguientes campos:
-
-- `id_usuario` — quién ejecutó la acción
-- `accion` — tipo (`INSERT`, `UPDATE`, `DELETE`)
-- `tabla_afectada` — tabla modificada
-- `id_registro` — PK del registro afectado
-- `valor_anterior` / `valor_nuevo` — snapshot JSON antes y después
-- `ip` / `user_agent` — trazabilidad de red
-- Hash SHA-256 de integridad embebido en `valor_nuevo`
-
----
+La tabla principal es `log_auditoria`. El backend redacta campos sensibles comunes antes de registrar valores auditados.
 
 ## Pruebas
 
 ```bash
-# Suite completa con cobertura
 npm test -- --runInBand
-
-# Solo pruebas unitarias
 npm run test:unit
-
-# Solo pruebas de integración
 npm run test:integration
 ```
 
-Umbral de cobertura configurado: **≥ 80 %** en branches, functions, lines y statements.
+El proyecto exige cobertura global minima de 80%.
 
-Última verificación:
+## Pendientes conocidos
 
-- 16 suites aprobadas
-- 97 pruebas aprobadas
-- Cobertura global sobre los umbrales configurados
+- Mantener el schema remoto alineado con `database/grandstay_db.sql`.
+- Evitar triggers de BD que dupliquen cambios de estado ya controlados por el backend.
+- Revisar `database/seed-data.sql` si se detectan columnas desactualizadas frente al schema actual.

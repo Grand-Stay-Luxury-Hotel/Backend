@@ -50,6 +50,18 @@ export const swaggerSpec = swaggerJSDoc({
             usuario: { type: 'object' },
           },
         },
+        RegistroRequest: {
+          type: 'object',
+          required: ['nombre', 'apellido', 'email', 'password', 'num_documento'],
+          properties: {
+            nombre: { type: 'string', example: 'Juan' },
+            apellido: { type: 'string', example: 'Garcia' },
+            email: { type: 'string', format: 'email', example: 'juan@email.com' },
+            password: { type: 'string', minLength: 8, example: 'Minimo8chars' },
+            telefono: { type: 'string', example: '+57 300 000 0000' },
+            num_documento: { type: 'string', example: '1234567890' },
+          },
+        },
         ReservaRequest: {
           type: 'object',
           required: ['id_huesped', 'id_habitacion', 'fecha_entrada', 'fecha_salida', 'token_pago', 'monto_anticipo'],
@@ -73,6 +85,30 @@ export const swaggerSpec = swaggerJSDoc({
               example: 'limpieza',
             },
             observaciones: { type: 'string', example: 'Habitacion lista para limpieza' },
+          },
+        },
+        CheckinRequest: {
+          type: 'object',
+          properties: {
+            documento_verificado: { type: 'boolean', example: true },
+            observaciones: { type: 'string', example: 'Documento verificado en recepcion' },
+          },
+        },
+        CheckoutRequest: {
+          type: 'object',
+          properties: {
+            estado_habitacion: {
+              type: 'string',
+              enum: ['bueno', 'danos_menores', 'danos_graves', 'pendiente_revision'],
+              example: 'bueno',
+            },
+            estadoHabitacion: {
+              type: 'string',
+              enum: ['bueno', 'danos_menores', 'danos_graves', 'pendiente_revision'],
+              example: 'bueno',
+              description: 'Alias aceptado por el backend para estado_habitacion.',
+            },
+            observaciones: { type: 'string', example: 'Salida realizada correctamente' },
           },
         },
         ConsumoRequest: {
@@ -131,7 +167,8 @@ export const swaggerSpec = swaggerJSDoc({
       { name: 'Check-out' },
       { name: 'Consumos' },
       { name: 'Inventario' },
-      { name: 'Reportes' },
+      { name: 'Reportes', description: 'Reportes JSON. El valor pdf_trigger indica integracion pendiente, no generacion PDF directa.' },
+      { name: 'Auditoria', description: 'Auditoria interna mediante middleware/servicio; no existe endpoint HTTP publico.' },
     ],
     paths: {
       '/health': {
@@ -171,6 +208,23 @@ export const swaggerSpec = swaggerJSDoc({
             },
             400: { $ref: '#/components/responses/ValidationError' },
             401: { $ref: '#/components/responses/Unauthorized' },
+          },
+        },
+      },
+      '/auth/registro': {
+        post: {
+          tags: ['Autenticacion'],
+          summary: 'Registra un nuevo huesped y devuelve un JWT',
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/RegistroRequest' } } },
+          },
+          responses: {
+            201: {
+              description: 'Huesped registrado',
+              content: { 'application/json': { schema: { $ref: '#/components/schemas/LoginResponse' } } },
+            },
+            400: { $ref: '#/components/responses/ValidationError' },
           },
         },
       },
@@ -229,7 +283,8 @@ export const swaggerSpec = swaggerJSDoc({
       '/habitaciones/{id}/estado': {
         patch: {
           tags: ['Habitaciones'],
-          summary: 'Actualiza el estado de una habitacion',
+          summary: 'Actualiza el estado de una habitacion, incluyendo mantenimiento',
+          description: 'No existe una ruta separada de mantenimiento; se gestiona con estados de habitacion.',
           security: bearerAuth,
           parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' }, example: 2 }],
           requestBody: {
@@ -251,7 +306,7 @@ export const swaggerSpec = swaggerJSDoc({
           security: bearerAuth,
           parameters: [
             { name: 'buscar', in: 'query', schema: { type: 'string' }, example: 'GS-2026' },
-            { name: 'estado', in: 'query', schema: { type: 'string' }, example: 'confirmada' },
+            { name: 'estado', in: 'query', schema: { type: 'string', enum: ['pendiente', 'confirmada', 'en_curso', 'completada', 'cancelada', 'no_show'] }, example: 'confirmada' },
             { name: 'operacion', in: 'query', schema: { type: 'string', enum: ['checkin', 'checkout', 'cancelacion'] }, example: 'checkin' },
             { name: 'limite', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100 }, example: 50 },
           ],
@@ -264,6 +319,7 @@ export const swaggerSpec = swaggerJSDoc({
         post: {
           tags: ['Reservas'],
           summary: 'Crea una reserva con anticipo',
+          description: 'Crear una reserva no marca la habitacion como ocupada; la ocupacion ocurre en check-in.',
           security: bearerAuth,
           requestBody: {
             required: true,
@@ -297,8 +353,14 @@ export const swaggerSpec = swaggerJSDoc({
           summary: 'Registra el check-in de una reserva',
           security: bearerAuth,
           parameters: [{ name: 'reservaId', in: 'path', required: true, schema: { type: 'integer' }, example: 2 }],
+          requestBody: {
+            required: false,
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/CheckinRequest' } } },
+          },
           responses: {
-            201: { description: 'Check-in registrado' },
+            200: { description: 'Check-in registrado. La reserva pasa a en_curso y la habitacion a ocupada.' },
+            400: { $ref: '#/components/responses/ValidationError' },
+            409: { description: 'La reserva ya tiene check-in registrado' },
             401: { $ref: '#/components/responses/Unauthorized' },
             403: { $ref: '#/components/responses/Forbidden' },
             404: { description: 'Reserva no encontrada' },
@@ -311,8 +373,14 @@ export const swaggerSpec = swaggerJSDoc({
           summary: 'Registra el check-out y genera liquidacion',
           security: bearerAuth,
           parameters: [{ name: 'reservaId', in: 'path', required: true, schema: { type: 'integer' }, example: 2 }],
+          requestBody: {
+            required: false,
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/CheckoutRequest' } } },
+          },
           responses: {
-            200: { description: 'Check-out procesado' },
+            200: { description: 'Check-out procesado. La reserva pasa a completada y la habitacion a limpieza.' },
+            400: { $ref: '#/components/responses/ValidationError' },
+            409: { description: 'La reserva ya tiene check-out registrado' },
             401: { $ref: '#/components/responses/Unauthorized' },
             403: { $ref: '#/components/responses/Forbidden' },
             404: { description: 'Reserva no encontrada' },
@@ -395,6 +463,7 @@ export const swaggerSpec = swaggerJSDoc({
           ],
           responses: {
             200: { description: 'Reporte generado' },
+            400: { $ref: '#/components/responses/ValidationError' },
             401: { $ref: '#/components/responses/Unauthorized' },
             403: { $ref: '#/components/responses/Forbidden' },
           },
@@ -414,6 +483,7 @@ export const swaggerSpec = swaggerJSDoc({
           ],
           responses: {
             200: { description: 'Reporte generado' },
+            400: { $ref: '#/components/responses/ValidationError' },
             401: { $ref: '#/components/responses/Unauthorized' },
             403: { $ref: '#/components/responses/Forbidden' },
           },
