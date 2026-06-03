@@ -1,7 +1,9 @@
 import {
+  CATEGORIAS_AMBIENTALES,
   calcularPorcentajeOcupacion,
   construirRangoMensual,
   normalizarIngresoHabitacion,
+  normalizarCategoriaAmbiental,
   validarPeriodo,
   validarRangoFechas,
   validarVentanaMeses,
@@ -10,6 +12,34 @@ import {
 describe('HU-B12 reportes.service', () => {
   test('valida mes y anio', () => {
     expect(validarPeriodo('5', '2026')).toEqual({ mes: 5, anio: 2026 });
+  });
+
+  test('expone catalogo unico de categorias ambientales', () => {
+    expect(CATEGORIAS_AMBIENTALES).toEqual([
+      'basura',
+      'contaminacion_hidrica',
+      'deforestacion',
+      'vertidos_ilegales',
+      'humo_quemas',
+      'contaminacion_aire',
+      'mineria_ilegal',
+      'fauna_flora',
+      'otro',
+    ]);
+  });
+
+  test('normaliza categorias ambientales antiguas o duplicadas', () => {
+    expect(normalizarCategoriaAmbiental('Contaminacion del agua')).toBe('contaminacion_hidrica');
+    expect(normalizarCategoriaAmbiental('quemas')).toBe('humo_quemas');
+    expect(normalizarCategoriaAmbiental('incendios_forestales')).toBe('humo_quemas');
+    expect(normalizarCategoriaAmbiental('tala de arboles')).toBe('deforestacion');
+    expect(normalizarCategoriaAmbiental('Fauna')).toBe('fauna_flora');
+    expect(normalizarCategoriaAmbiental('avalanchas_fluviotorrenciales')).toBe('otro');
+  });
+
+  test('rechaza categorias ambientales fuera del catalogo', () => {
+    expect(() => normalizarCategoriaAmbiental('categoria_inexistente')).toThrow('categoria ambiental invalida');
+    expect(() => normalizarCategoriaAmbiental('')).toThrow('categoria ambiental es obligatoria');
   });
 
   test('calcula porcentaje de ocupacion por tipo', () => {

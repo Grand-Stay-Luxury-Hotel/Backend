@@ -7,6 +7,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 TRUNCATE TABLE log_auditoria;
 TRUNCATE TABLE reportes;
+TRUNCATE TABLE categorias_ambientales;
 TRUNCATE TABLE notificaciones;
 TRUNCATE TABLE consumo_insumos;
 TRUNCATE TABLE insumos_limpieza;
@@ -36,6 +37,17 @@ INSERT INTO roles (id_rol, nombre) VALUES
   (3, 'PersonalLimpieza'),
   (4, 'ServicioTecnico'),
   (5, 'Huesped');
+
+INSERT INTO categorias_ambientales (codigo, nombre) VALUES
+  ('basura', 'Basura'),
+  ('contaminacion_hidrica', 'Contaminacion hidrica'),
+  ('deforestacion', 'Deforestacion'),
+  ('vertidos_ilegales', 'Vertidos ilegales'),
+  ('humo_quemas', 'Humo y quemas'),
+  ('contaminacion_aire', 'Contaminacion del aire'),
+  ('mineria_ilegal', 'Mineria ilegal'),
+  ('fauna_flora', 'Fauna y flora'),
+  ('otro', 'Otro');
 
 INSERT INTO usuarios
   (id_usuario, email, password_hash, id_rol, activo, nombre, apellido, ultimo_acceso)

@@ -45,6 +45,8 @@ Fecha de revision: 2026-05-29
 - Check-in valida que la fecha actual este dentro de la ventana de la reserva.
 - Check-out falla de forma controlada si no hay tarifa activa aplicable, evitando liquidaciones en cero.
 - `database/grandstay_db.sql` y `database/seed-data.sql` quedan alineados con los enums y columnas usados por backend.
+- Reportes Green Alert usa un catalogo unico de categorias ambientales en `src/utils/categoriasAmbientales.js`: `basura`, `contaminacion_hidrica`, `deforestacion`, `vertidos_ilegales`, `humo_quemas`, `contaminacion_aire`, `mineria_ilegal`, `fauna_flora`, `otro`.
+- `database/normalizar-categorias-ambientales.sql` migra `reportes.tipo_contaminacion` desde el enum actual de la BD Green Alert hacia el catalogo canonico.
 
 ## Limitaciones conocidas
 

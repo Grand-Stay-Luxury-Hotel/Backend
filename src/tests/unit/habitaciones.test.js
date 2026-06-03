@@ -45,4 +45,14 @@ describe('HU-B07 habitaciones.service', () => {
     const resultado = validarTransicionHabitacion('disponible', 'mantenimiento', 'Recepcionista');
     expect(resultado.bloqueaReservas).toBe(true);
   });
+
+  test('servicio tecnico puede pasar una habitacion ocupada a mantenimiento', () => {
+    const resultado = validarTransicionHabitacion('ocupada', 'mantenimiento', 'ServicioTecnico');
+    expect(resultado).toEqual({ actual: 'ocupada', nuevo: 'mantenimiento', bloqueaReservas: true });
+  });
+
+  test('servicio tecnico puede finalizar mantenimiento dejando disponible', () => {
+    const resultado = validarTransicionHabitacion('mantenimiento', 'disponible', 'ServicioTecnico');
+    expect(resultado).toEqual({ actual: 'mantenimiento', nuevo: 'disponible', bloqueaReservas: false });
+  });
 });

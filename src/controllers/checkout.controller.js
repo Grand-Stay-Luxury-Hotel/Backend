@@ -18,6 +18,7 @@ export async function postCheckout(req, res, next) {
       rol: req.user?.rol,
       estadoHabitacionCheckout: req.body?.estado_habitacion ?? req.body?.estadoHabitacion,
       observaciones: req.body?.observaciones ?? null,
+      tokenPago: req.body?.token_pago ?? req.body?.tokenPago ?? null,
       ip: req.ip,
       userAgent: req.headers['user-agent'],
     });

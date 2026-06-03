@@ -4,8 +4,8 @@ import { logAudit } from '../middleware/audit.middleware.js';
 import { query } from '../utils/db.js';
 import { ParametrosInvalidosError } from '../utils/errors.js';
 
-const ACCIONES_AUDITORIA_VALIDAS = new Set(['INSERT', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT', 'READ']);
-const TABLAS_AUDITORIA_VALIDAS = new Set([
+export const ACCIONES_AUDITORIA_VALIDAS = new Set(['INSERT', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT', 'READ']);
+export const TABLAS_AUDITORIA_VALIDAS = new Set([
   'auth',
   'checkin',
   'checkout',
@@ -22,6 +22,48 @@ const TABLAS_AUDITORIA_VALIDAS = new Set([
   'tokens_pago',
   'usuarios',
 ]);
+
+export async function listarFiltrosAuditoria() {
+  const [tablasRegistradas, usuarios] = await Promise.all([
+    query(
+      `
+        SELECT DISTINCT tabla_afectada AS tabla
+        FROM log_auditoria
+        WHERE tabla_afectada IS NOT NULL
+        ORDER BY tabla_afectada
+      `,
+    ),
+    query(
+      `
+        SELECT
+          u.id_usuario,
+          u.email,
+          u.nombre,
+          u.apellido,
+          r.nombre AS rol
+        FROM usuarios u
+        JOIN roles r ON r.id_rol = u.id_rol
+        ORDER BY u.id_usuario
+      `,
+    ),
+  ]);
+
+  const tablas = Array.from(new Set([
+    ...tablasRegistradas.map((r) => r.tabla).filter(Boolean),
+    ...TABLAS_AUDITORIA_VALIDAS,
+  ])).sort();
+
+  return {
+    acciones: Array.from(ACCIONES_AUDITORIA_VALIDAS).sort(),
+    tablas,
+    usuarios: usuarios.map((u) => ({
+      id_usuario: u.id_usuario,
+      email: u.email,
+      nombre: [u.nombre, u.apellido].filter(Boolean).join(' ').trim() || u.email,
+      rol: u.rol,
+    })),
+  };
+}
 
 export function crearHashAuditoria(registro) {
   return crypto.createHash('sha256').update(JSON.stringify(registro)).digest('hex');
@@ -95,21 +137,26 @@ export async function listarAuditoria({ tabla = null, accion = null, usuario = n
     const registros = await query(
       `
         SELECT
-          id_log AS id_auditoria,
-          id_usuario,
-          accion,
-          tabla_afectada,
-          id_registro,
-          valor_anterior,
-          valor_nuevo,
-          ip,
-          user_agent,
-          fecha_hora
-        FROM log_auditoria
-        WHERE (:tabla IS NULL OR tabla_afectada = :tabla)
-          AND (:accion IS NULL OR accion = :accion)
-          AND (:usuario IS NULL OR id_usuario = :usuario)
-        ORDER BY fecha_hora DESC, id_log DESC
+          la.id_log AS id_auditoria,
+          la.id_usuario,
+          u.email AS usuario,
+          CONCAT(COALESCE(u.nombre, ''), ' ', COALESCE(u.apellido, '')) AS nombre_usuario,
+          r.nombre AS rol_usuario,
+          la.accion,
+          la.tabla_afectada,
+          la.id_registro,
+          la.valor_anterior,
+          la.valor_nuevo,
+          la.ip,
+          la.user_agent,
+          la.fecha_hora
+        FROM log_auditoria la
+        LEFT JOIN usuarios u ON u.id_usuario = la.id_usuario
+        LEFT JOIN roles r ON r.id_rol = u.id_rol
+        WHERE (:tabla IS NULL OR la.tabla_afectada = :tabla)
+          AND (:accion IS NULL OR la.accion = :accion)
+          AND (:usuario IS NULL OR la.id_usuario = :usuario)
+        ORDER BY la.fecha_hora DESC, la.id_log DESC
         LIMIT ${limiteNormalizado} OFFSET ${offset}
       `,
       { tabla: tablaNormalizada, accion: accionNormalizada, usuario: usuarioNormalizado },

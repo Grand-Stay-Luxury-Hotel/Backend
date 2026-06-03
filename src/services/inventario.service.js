@@ -2,6 +2,7 @@
 import { getConnection, query } from '../utils/db.js';
 import { ParametrosInvalidosError, RecursoNoEncontradoError } from '../utils/errors.js';
 import { logAudit } from '../middleware/audit.middleware.js';
+import { getColumnName } from '../utils/schema.js';
 
 export function normalizarIdPositivo(valor, nombreCampo) {
   const numero = Number(valor);
@@ -57,6 +58,26 @@ export function crearAlertaStock({ insumo, stockResultante, habitacionId, critic
     criticidad,
     estado: 'pendiente',
   };
+}
+
+export function validarInsumoPayload(payload = {}) {
+  const nombre = String(payload.nombre ?? '').trim();
+  const categoria = String(payload.categoria ?? '').trim();
+  const unidadMedida = String(payload.unidad_medida ?? payload.unidadMedida ?? '').trim();
+  const stockActual = Number(payload.stock_actual ?? payload.stockActual ?? 0);
+  const stockMinimo = Number(payload.stock_minimo ?? payload.stockMinimo ?? 0);
+
+  if (!nombre || !categoria || !unidadMedida) {
+    throw new ParametrosInvalidosError('nombre, categoria y unidad_medida son obligatorios');
+  }
+  if (!Number.isFinite(stockActual) || stockActual < 0) {
+    throw new ParametrosInvalidosError('stock_actual debe ser un numero mayor o igual a cero');
+  }
+  if (!Number.isFinite(stockMinimo) || stockMinimo < 0) {
+    throw new ParametrosInvalidosError('stock_minimo debe ser un numero mayor o igual a cero');
+  }
+
+  return { nombre, categoria, unidadMedida, stockActual, stockMinimo };
 }
 
 /* istanbul ignore next */
@@ -248,8 +269,7 @@ export async function listarInsumosInventario({ pagina = 1, limite = 100, buscar
         unidad_medida,
         stock_actual,
         stock_minimo,
-        GREATEST(stock_minimo - stock_actual, 0) AS faltante,
-        updated_at
+        GREATEST(stock_minimo - stock_actual, 0) AS faltante
       FROM insumos_limpieza
       WHERE (:buscar = '' OR nombre LIKE :buscarLike OR categoria LIKE :buscarLike)
       ORDER BY nombre ASC
@@ -270,6 +290,9 @@ export async function listarHistorialInventario({ pagina = 1, limite = 50, idIns
   const offset = (paginacion.pagina - 1) * paginacion.limite;
   const filtroInsumo = idInsumo ? normalizarIdPositivo(idInsumo, 'idInsumo') : null;
   const filtroHabitacion = idHabitacion ? normalizarIdPositivo(idHabitacion, 'idHabitacion') : null;
+  const numeroCol = await getColumnName('habitaciones', ['numero_habitacion', 'numero']);
+  const consumoIdCol = await getColumnName('consumo_insumos', ['id_consumo', 'id_consumo_insumo']);
+  const fechaCol = await getColumnName('consumo_insumos', ['fecha_consumo', 'fecha']);
 
   const [{ total }] = await query(
     `
@@ -284,18 +307,18 @@ export async function listarHistorialInventario({ pagina = 1, limite = 50, idIns
   const data = await query(
     `
       SELECT
-        ci.id_consumo_insumo AS id_consumo,
+        ci.${consumoIdCol} AS id_consumo,
         ci.id_personal,
         CONCAT(u.nombre, ' ', u.apellido) AS personal_nombre,
         ci.id_insumo,
         il.nombre AS insumo_nombre,
         il.categoria,
         ci.id_habitacion,
-        h.numero_habitacion,
+        h.${numeroCol} AS numero_habitacion,
         ci.tipo_tarea,
         ci.cantidad,
         ci.observaciones,
-        ci.fecha AS fecha_consumo
+        ci.${fechaCol} AS fecha_consumo
       FROM consumo_insumos ci
       JOIN insumos_limpieza il ON il.id_insumo = ci.id_insumo
       JOIN habitaciones h ON h.id_habitacion = ci.id_habitacion
@@ -303,13 +326,116 @@ export async function listarHistorialInventario({ pagina = 1, limite = 50, idIns
       JOIN usuarios u ON u.id_usuario = pl.id_usuario
       WHERE (:idInsumo IS NULL OR ci.id_insumo = :idInsumo)
         AND (:idHabitacion IS NULL OR ci.id_habitacion = :idHabitacion)
-      ORDER BY ci.fecha DESC, ci.id_consumo_insumo DESC
+      ORDER BY ci.${fechaCol} DESC, ci.${consumoIdCol} DESC
       LIMIT ${paginacion.limite} OFFSET ${offset}
     `,
     { idInsumo: filtroInsumo, idHabitacion: filtroHabitacion },
   );
 
   return { data, total, pagina: paginacion.pagina, limite: paginacion.limite };
+}
+
+/* istanbul ignore next */
+export async function crearInsumoInventario(payload, contexto = {}) {
+  const insumo = validarInsumoPayload(payload);
+  const conn = await getConnection();
+  try {
+    await conn.beginTransaction();
+    const [resultado] = await conn.execute(
+      `
+        INSERT INTO insumos_limpieza
+          (nombre, categoria, unidad_medida, stock_actual, stock_minimo)
+        VALUES
+          (:nombre, :categoria, :unidadMedida, :stockActual, :stockMinimo)
+      `,
+      insumo,
+    );
+
+    await logAudit({
+      conn,
+      userId: contexto.userId ?? null,
+      accion: 'INSERT',
+      tablaAfectada: 'insumos_limpieza',
+      idRegistro: resultado.insertId,
+      valorNuevo: {
+        nombre: insumo.nombre,
+        categoria: insumo.categoria,
+        unidad_medida: insumo.unidadMedida,
+        stock_actual: insumo.stockActual,
+        stock_minimo: insumo.stockMinimo,
+      },
+      ip: contexto.ip ?? null,
+      userAgent: contexto.userAgent ?? null,
+    });
+
+    await conn.commit();
+    return {
+      id_insumo: resultado.insertId,
+      nombre: insumo.nombre,
+      categoria: insumo.categoria,
+      unidad_medida: insumo.unidadMedida,
+      stock_actual: insumo.stockActual,
+      stock_minimo: insumo.stockMinimo,
+      mensaje: 'Insumo creado',
+    };
+  } catch (error) {
+    await conn.rollback();
+    throw error;
+  } finally {
+    conn.release();
+  }
+}
+
+/* istanbul ignore next */
+export async function agregarStockInventario(idInsumo, cantidad, contexto = {}) {
+  const idInsumoNormalizado = normalizarIdPositivo(idInsumo, 'idInsumo');
+  const cantidadNormalizada = Number(cantidad);
+  if (!Number.isFinite(cantidadNormalizada) || cantidadNormalizada <= 0) {
+    throw new ParametrosInvalidosError('La cantidad a agregar debe ser mayor a cero');
+  }
+
+  const conn = await getConnection();
+  try {
+    await conn.beginTransaction();
+    const [[insumo]] = await conn.execute(
+      'SELECT id_insumo, stock_actual FROM insumos_limpieza WHERE id_insumo = :idInsumo FOR UPDATE',
+      { idInsumo: idInsumoNormalizado },
+    );
+
+    if (!insumo) {
+      throw new RecursoNoEncontradoError('El insumo solicitado no existe');
+    }
+
+    const stockResultante = Number(insumo.stock_actual) + cantidadNormalizada;
+    await conn.execute(
+      'UPDATE insumos_limpieza SET stock_actual = :stockActual WHERE id_insumo = :idInsumo',
+      { stockActual: stockResultante, idInsumo: idInsumoNormalizado },
+    );
+
+    await logAudit({
+      conn,
+      userId: contexto.userId ?? null,
+      accion: 'UPDATE',
+      tablaAfectada: 'insumos_limpieza',
+      idRegistro: idInsumoNormalizado,
+      valorAnterior: { stock_actual: Number(insumo.stock_actual) },
+      valorNuevo: { stock_actual: stockResultante, cantidad_agregada: cantidadNormalizada },
+      ip: contexto.ip ?? null,
+      userAgent: contexto.userAgent ?? null,
+    });
+
+    await conn.commit();
+    return {
+      id_insumo: idInsumoNormalizado,
+      stock_actual: stockResultante,
+      mensaje: 'Stock actualizado',
+    };
+  } catch (error) {
+    await conn.rollback();
+    throw error;
+  } finally {
+    conn.release();
+  }
 }
 
 /* istanbul ignore next */

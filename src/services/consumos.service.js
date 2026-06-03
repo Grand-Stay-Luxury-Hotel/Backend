@@ -7,6 +7,7 @@ import {
   RecursoNoEncontradoError,
 } from '../utils/errors.js';
 import { logAudit } from '../middleware/audit.middleware.js';
+import { getColumnName } from '../utils/schema.js';
 
 const TIPOS_CONSUMO = new Set(['restaurante', 'lavanderia', 'spa']);
 
@@ -63,6 +64,7 @@ function resumenConsumos(consumos) {
 export async function listarConsumosPorReserva(idReserva, contexto = {}) {
   try {
     const reservaId = normalizarIdPositivo(idReserva, 'id_reserva');
+    const numeroCol = await getColumnName('habitaciones', ['numero_habitacion', 'numero']);
     const [reserva] = await query(
       `
         SELECT id_reserva, id_huesped
@@ -87,7 +89,7 @@ export async function listarConsumosPorReserva(idReserva, contexto = {}) {
           cs.id_consumo_servicio AS id_consumo,
           cs.id_reserva,
           cs.id_habitacion,
-          h.numero_habitacion,
+          h.${numeroCol} AS numero_habitacion,
           cs.id_servicio,
           sa.nombre AS servicio_nombre,
           sa.categoria AS tipo,
@@ -122,6 +124,7 @@ export async function listarConsumosPorReserva(idReserva, contexto = {}) {
 export async function listarMisConsumos(contexto = {}) {
   try {
     const idHuesped = normalizarIdPositivo(contexto.idHuesped, 'id_huesped');
+    const numeroCol = await getColumnName('habitaciones', ['numero_habitacion', 'numero']);
     const consumos = await query(
       `
         SELECT
@@ -129,7 +132,7 @@ export async function listarMisConsumos(contexto = {}) {
           cs.id_reserva,
           r.codigo_confirmacion,
           cs.id_habitacion,
-          h.numero_habitacion,
+          h.${numeroCol} AS numero_habitacion,
           cs.id_servicio,
           sa.nombre AS servicio_nombre,
           sa.categoria AS tipo,

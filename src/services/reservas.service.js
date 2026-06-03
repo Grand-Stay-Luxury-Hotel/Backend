@@ -4,6 +4,7 @@ import { AccesoDenegadoError, ParametrosInvalidosError, ReservaNoEncontradaError
 import { verificarDisponibilidad } from './overbooking.service.js';
 import { autorizarPago, reembolsarPago } from './pasarela.service.js';
 import { logAudit } from '../middleware/audit.middleware.js';
+import { getColumnName } from '../utils/schema.js';
 
 const ESTADOS_RESERVA_CANCELABLES = new Set(['pendiente', 'confirmada']);
 
@@ -90,6 +91,7 @@ export async function listarReservas({ buscar = '', estado = null, operacion = n
     const estados = estadosOperacion ?? (estado ? [String(estado).trim()] : null);
     const patronBusqueda = String(buscar ?? '').trim();
     const limiteNormalizado = normalizarLimite(limite);
+    const numeroCol = await getColumnName('habitaciones', ['numero_habitacion', 'numero']);
 
     const reservas = await query(
       `
@@ -106,7 +108,7 @@ export async function listarReservas({ buscar = '', estado = null, operacion = n
           hu.email AS huesped_email,
           hu.num_documento AS huesped_documento,
           r.id_habitacion,
-          h.numero_habitacion,
+          h.${numeroCol} AS numero_habitacion,
           th.nombre AS tipo_habitacion,
           ci.id_checkin
         FROM reservas r
@@ -120,7 +122,7 @@ export async function listarReservas({ buscar = '', estado = null, operacion = n
             :buscar = ''
             OR r.codigo_confirmacion LIKE :buscarLike
             OR CAST(r.id_reserva AS CHAR) = :buscarExacto
-            OR h.numero_habitacion LIKE :buscarLike
+            OR h.${numeroCol} LIKE :buscarLike
             OR hu.nombres LIKE :buscarLike
             OR hu.apellidos LIKE :buscarLike
             OR CONCAT(hu.nombres, ' ', hu.apellidos) LIKE :buscarLike
@@ -161,6 +163,7 @@ export async function listarReservasHuesped(idHuesped, { estado = null, limite =
       throw new AccesoDenegadoError('No hay huesped asociado al usuario autenticado');
     }
     const limiteNormalizado = normalizarLimite(limite);
+    const numeroCol = await getColumnName('habitaciones', ['numero_habitacion', 'numero']);
 
     const reservas = await query(
       `
@@ -180,7 +183,7 @@ export async function listarReservasHuesped(idHuesped, { estado = null, limite =
           hu.email AS huesped_email,
           hu.num_documento AS huesped_documento,
           r.id_habitacion,
-          h.numero_habitacion,
+          h.${numeroCol} AS numero_habitacion,
           th.nombre AS tipo_habitacion,
           ci.id_checkin
         FROM reservas r

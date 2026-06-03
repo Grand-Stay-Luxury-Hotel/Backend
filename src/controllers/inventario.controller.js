@@ -1,6 +1,8 @@
 // src/controllers/inventario.controller.js
 import {
   actualizarUmbralInventario,
+  agregarStockInventario,
+  crearInsumoInventario,
   listarAlertasInventario,
   listarHistorialInventario,
   listarInsumosInventario,
@@ -59,6 +61,25 @@ export async function getHistorialInventario(req, res, next) {
 export async function patchUmbralInventario(req, res, next) {
   try {
     const resultado = await actualizarUmbralInventario(req.params.id, req.body.umbral, crearContexto(req));
+    res.status(200).json(resultado);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function postInsumoInventario(req, res, next) {
+  try {
+    const resultado = await crearInsumoInventario(req.body, crearContexto(req));
+    res.status(201).json(resultado);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function patchStockInventario(req, res, next) {
+  try {
+    const cantidad = req.body?.cantidad ?? req.body?.stock ?? req.body?.stock_actual;
+    const resultado = await agregarStockInventario(req.params.id, cantidad, crearContexto(req));
     res.status(200).json(resultado);
   } catch (error) {
     next(error);

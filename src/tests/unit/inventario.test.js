@@ -4,6 +4,7 @@ import {
   crearAlertaStock,
   normalizarIdPositivo,
   normalizarPaginacionInventario,
+  validarInsumoPayload,
 } from '../../services/inventario.service.js';
 
 describe('HU-B11 inventario.service', () => {
@@ -77,5 +78,20 @@ describe('HU-B11 inventario.service', () => {
       criticidad: 'critica',
       estado: 'pendiente',
     });
+  });
+
+  test('valida payload de nuevo insumo', () => {
+    expect(validarInsumoPayload({
+      nombre: 'Toalla',
+      categoria: 'textil',
+      unidad_medida: 'unidad',
+      stock_actual: 10,
+      stock_minimo: 3,
+    })).toMatchObject({ nombre: 'Toalla', stockActual: 10 });
+
+    expect(() => validarInsumoPayload({ nombre: '', categoria: 'textil', unidad_medida: 'unidad' }))
+      .toThrow('nombre, categoria y unidad_medida');
+    expect(() => validarInsumoPayload({ nombre: 'Toalla', categoria: 'textil', unidad_medida: 'unidad', stock_actual: -1 }))
+      .toThrow('stock_actual');
   });
 });

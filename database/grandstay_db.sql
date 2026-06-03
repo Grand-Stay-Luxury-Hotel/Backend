@@ -304,16 +304,36 @@ CREATE TABLE IF NOT EXISTS log_auditoria (
   INDEX idx_auditoria_usuario_fecha (id_usuario, creado_en)
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS categorias_ambientales (
+  codigo VARCHAR(50) PRIMARY KEY,
+  nombre VARCHAR(100) NOT NULL,
+  activa BOOLEAN DEFAULT TRUE
+) ENGINE=InnoDB;
+
+INSERT IGNORE INTO categorias_ambientales (codigo, nombre) VALUES
+  ('basura', 'Basura'),
+  ('contaminacion_hidrica', 'Contaminacion hidrica'),
+  ('deforestacion', 'Deforestacion'),
+  ('vertidos_ilegales', 'Vertidos ilegales'),
+  ('humo_quemas', 'Humo y quemas'),
+  ('contaminacion_aire', 'Contaminacion del aire'),
+  ('mineria_ilegal', 'Mineria ilegal'),
+  ('fauna_flora', 'Fauna y flora'),
+  ('otro', 'Otro');
+
 CREATE TABLE IF NOT EXISTS reportes (
   id_reporte INT AUTO_INCREMENT PRIMARY KEY,
   generado_por INT,
   tipo_reporte VARCHAR(50) NOT NULL,
+  categoria_ambiental VARCHAR(50),
   titulo VARCHAR(150) NOT NULL,
   periodo_inicio DATE,
   periodo_fin DATE,
   formato VARCHAR(20) DEFAULT 'JSON',
   creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_reportes_usuarios FOREIGN KEY (generado_por) REFERENCES usuarios(id_usuario)
+  CONSTRAINT fk_reportes_usuarios FOREIGN KEY (generado_por) REFERENCES usuarios(id_usuario),
+  CONSTRAINT fk_reportes_categoria_ambiental FOREIGN KEY (categoria_ambiental) REFERENCES categorias_ambientales(codigo),
+  INDEX idx_reportes_categoria_ambiental (categoria_ambiental)
 ) ENGINE=InnoDB;
 
 CREATE OR REPLACE VIEW v_stock_critico AS

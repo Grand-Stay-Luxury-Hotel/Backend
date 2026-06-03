@@ -11,6 +11,17 @@ INSERT INTO roles (nombre) VALUES
     ('Huesped'),
     ('ServicioTecnico');
 
+INSERT IGNORE INTO categorias_ambientales (codigo, nombre) VALUES
+    ('basura', 'Basura'),
+    ('contaminacion_hidrica', 'Contaminacion hidrica'),
+    ('deforestacion', 'Deforestacion'),
+    ('vertidos_ilegales', 'Vertidos ilegales'),
+    ('humo_quemas', 'Humo y quemas'),
+    ('contaminacion_aire', 'Contaminacion del aire'),
+    ('mineria_ilegal', 'Mineria ilegal'),
+    ('fauna_flora', 'Fauna y flora'),
+    ('otro', 'Otro');
+
 -- Usuarios de prueba. La contrasena real esta documentada fuera del repo.
 -- Hash bcrypt coste 12 generado para la clave compartida por el equipo.
 INSERT INTO usuarios (email, password_hash, id_rol, activo, nombre, apellido) VALUES

@@ -238,7 +238,8 @@ export async function registrarCheckout(idReserva, contexto = {}) {
       consumos,
     });
 
-    const pago = await cobrarSaldo({ tokenPago: reserva.token, monto: liquidacion.saldo_cobrado });
+    const tokenPagoCheckout = contexto.tokenPago || reserva.token;
+    const pago = await cobrarSaldo({ tokenPago: tokenPagoCheckout, monto: liquidacion.saldo_cobrado });
     if (liquidacion.saldo_cobrado > 0) {
       await logAudit({
         conn,

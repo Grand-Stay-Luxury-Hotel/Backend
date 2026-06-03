@@ -33,6 +33,22 @@ export const swaggerSpec = swaggerJSDoc({
             mensaje: { type: 'string', example: 'Solicitud invalida' },
           },
         },
+        CategoriaAmbiental: {
+          type: 'string',
+          enum: [
+            'basura',
+            'contaminacion_hidrica',
+            'deforestacion',
+            'vertidos_ilegales',
+            'humo_quemas',
+            'contaminacion_aire',
+            'mineria_ilegal',
+            'fauna_flora',
+            'otro',
+          ],
+          example: 'basura',
+          description: 'Catalogo unico de categorias ambientales para reportes Green Alert.',
+        },
         LoginRequest: {
           type: 'object',
           required: ['usuario', 'password'],
@@ -167,7 +183,7 @@ export const swaggerSpec = swaggerJSDoc({
       { name: 'Check-out' },
       { name: 'Consumos' },
       { name: 'Inventario' },
-      { name: 'Reportes', description: 'Reportes JSON. El valor pdf_trigger indica integracion pendiente, no generacion PDF directa.' },
+      { name: 'Reportes', description: 'Reportes JSON. El valor pdf_trigger indica integracion pendiente, no generacion PDF directa. Los reportes ambientales Green Alert usan el schema CategoriaAmbiental.' },
       { name: 'Auditoria', description: 'Auditoria interna mediante middleware/servicio; no existe endpoint HTTP publico.' },
     ],
     paths: {

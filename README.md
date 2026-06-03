@@ -244,6 +244,22 @@ GET /reportes/ingresos?fechaInicio=2026-01-01&fechaFin=2026-12-31
 
 Los reportes devuelven JSON. El campo `pdf_trigger`, si aparece en `exportable`, indica integracion pendiente; no existe generacion PDF directa en este backend.
 
+Categorias ambientales Green Alert:
+
+```text
+basura
+contaminacion_hidrica
+deforestacion
+vertidos_ilegales
+humo_quemas
+contaminacion_aire
+mineria_ilegal
+fauna_flora
+otro
+```
+
+El backend centraliza este catalogo en `src/utils/categoriasAmbientales.js`. Para datos existentes, `database/normalizar-categorias-ambientales.sql` migra `reportes.tipo_contaminacion` desde aliases antiguos como `agua`, `aire`, `residuos`, `incendios_forestales`, `tala`, `mineria`, `fauna` o `flora` hacia la categoria canonica.
+
 ## Auditoria
 
 Auditoria funciona como middleware/servicio interno y puede consultarse por administrador.

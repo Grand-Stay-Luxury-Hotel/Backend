@@ -1,6 +1,7 @@
 // src/services/disponibilidad.service.js
 import { query } from '../utils/db.js';
 import { ParametrosInvalidosError } from '../utils/errors.js';
+import { getColumnName } from '../utils/schema.js';
 
 function validarFechas(fechaEntrada, fechaSalida) {
   const entrada = new Date(`${fechaEntrada}T00:00:00Z`);
@@ -29,14 +30,17 @@ export async function consultarDisponibilidad({ fechaEntrada, fechaSalida, tipo 
       throw new ParametrosInvalidosError('La capacidad debe ser un número mayor a cero');
     }
 
+    const numeroCol = await getColumnName('habitaciones', ['numero_habitacion', 'numero']);
+    const capacidadCol = await getColumnName('tipos_habitacion', ['capacidad_max', 'capacidad']);
     const habitaciones = await query(
       `
         SELECT
           h.id_habitacion,
-          h.numero_habitacion,
+          h.${numeroCol} AS numero_habitacion,
+          h.${numeroCol} AS numero,
           h.piso,
           th.nombre AS tipo_nombre,
-          th.capacidad_max,
+          th.${capacidadCol} AS capacidad_max,
           h.estado
         FROM habitaciones h
         JOIN tipos_habitacion th ON h.id_tipo = th.id_tipo
@@ -51,8 +55,8 @@ export async function consultarDisponibilidad({ fechaEntrada, fechaSalida, tipo 
               AND r.fecha_salida > :fechaEntrada
           )
           AND (:tipo IS NULL OR th.nombre = :tipo)
-          AND (:capacidad IS NULL OR th.capacidad_max >= :capacidad)
-        ORDER BY h.piso, h.numero_habitacion
+          AND (:capacidad IS NULL OR th.${capacidadCol} >= :capacidad)
+        ORDER BY h.piso, h.${numeroCol}
       `,
       {
         fechaEntrada,

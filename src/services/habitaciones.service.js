@@ -2,6 +2,7 @@
 import { getConnection, query } from '../utils/db.js';
 import { AccesoDenegadoError, ParametrosInvalidosError, RecursoNoEncontradoError } from '../utils/errors.js';
 import { logAudit } from '../middleware/audit.middleware.js';
+import { getColumnName } from '../utils/schema.js';
 
 const ESTADOS = {
   disponible: 'disponible',
@@ -13,7 +14,7 @@ const ESTADOS = {
 
 const TRANSICIONES_VALIDAS = new Map([
   ['disponible', new Set(['ocupada', 'mantenimiento', 'bloqueada'])],
-  ['ocupada', new Set(['limpieza'])],
+  ['ocupada', new Set(['limpieza', 'mantenimiento'])],
   ['limpieza', new Set(['disponible', 'mantenimiento'])],
   ['mantenimiento', new Set(['disponible', 'limpieza'])],
   ['bloqueada', new Set(['disponible', 'mantenimiento'])],
@@ -65,17 +66,20 @@ export async function listarHabitaciones({ buscar = '', estado = null, conReserv
 
     const patronBusqueda = String(buscar ?? '').trim();
     const limiteNormalizado = normalizarLimite(limite);
+    const numeroCol = await getColumnName('habitaciones', ['numero_habitacion', 'numero']);
+    const capacidadCol = await getColumnName('tipos_habitacion', ['capacidad_max', 'capacidad']);
     const habitaciones = await query(
       `
         SELECT
           h.id_habitacion,
-          h.numero_habitacion,
+          h.${numeroCol} AS numero_habitacion,
+          h.${numeroCol} AS numero,
           h.piso,
           h.estado,
           h.activo,
           th.id_tipo,
           th.nombre AS tipo_nombre,
-          th.capacidad_max,
+          th.${capacidadCol} AS capacidad_max,
           r.id_reserva AS id_reserva_activa,
           r.codigo_confirmacion,
           r.estado AS estado_reserva,
@@ -88,9 +92,9 @@ export async function listarHabitaciones({ buscar = '', estado = null, conReserv
         LEFT JOIN huespedes hu ON hu.id_huesped = r.id_huesped
         WHERE
           (:estado IS NULL OR h.estado = :estado)
-          AND (:buscar = '' OR h.numero_habitacion LIKE :buscarLike OR th.nombre LIKE :buscarLike)
+          AND (:buscar = '' OR h.${numeroCol} LIKE :buscarLike OR th.nombre LIKE :buscarLike)
           AND (:conReservaActiva = FALSE OR r.id_reserva IS NOT NULL)
-        ORDER BY h.piso, h.numero_habitacion
+        ORDER BY h.piso, h.${numeroCol}
         LIMIT ${limiteNormalizado}
       `,
       {

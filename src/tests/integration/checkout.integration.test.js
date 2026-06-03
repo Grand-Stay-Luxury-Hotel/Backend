@@ -75,6 +75,21 @@ describe('Integracion HU-B06 check-out', () => {
     );
   });
 
+  test('POST /checkout/:reservaId envia token_pago al servicio', async () => {
+    registrarCheckout.mockResolvedValue({ id_checkout: 8, resumen_factura: {}, estado_pago: 'aprobado' });
+
+    await request(app)
+      .post('/checkout/42')
+      .set('Authorization', `Bearer ${token('Recepcionista')}`)
+      .send({ token_pago: 'tok_visa_xxxx' })
+      .expect(200);
+
+    expect(registrarCheckout).toHaveBeenCalledWith(
+      '42',
+      expect.objectContaining({ tokenPago: 'tok_visa_xxxx' }),
+    );
+  });
+
   test('POST /checkout/:reservaId acepta alias estadoHabitacion', async () => {
     registrarCheckout.mockResolvedValue({ id_checkout: 8, resumen_factura: {}, estado_habitacion_checkout: 'danos_menores' });
 

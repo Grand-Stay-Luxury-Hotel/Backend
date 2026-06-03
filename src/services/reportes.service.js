@@ -1,6 +1,12 @@
 // src/services/reportes.service.js
 import { query } from '../utils/db.js';
 import { ParametrosInvalidosError } from '../utils/errors.js';
+import {
+  CATEGORIAS_AMBIENTALES,
+  normalizarCategoriaAmbiental,
+} from '../utils/categoriasAmbientales.js';
+
+export { CATEGORIAS_AMBIENTALES, normalizarCategoriaAmbiental };
 
 export function validarPeriodo(mes, anio) {
   const mesNumero = Number(mes);
