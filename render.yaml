@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: grand-stay-backend
+    runtime: docker
+    region: oregon
+    plan: free
+    branch: main
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_SSL_MODE
+        value: REQUIRED
+      - key: DB_SSL_REJECT_UNAUTHORIZED
+        value: "true"
+      - key: DB_SSL_CA
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      - key: ADMIN_OTP
+        sync: false
+      - key: ADMIN_OTP_SECRET
+        sync: false
+      - key: PAYMENT_GATEWAY_URL
+        value: https://api.pasarela-mock.com
+      - key: PAYMENT_GATEWAY_KEY
+        sync: false
