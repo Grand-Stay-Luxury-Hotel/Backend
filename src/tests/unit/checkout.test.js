@@ -12,6 +12,16 @@ describe('HU-B06 checkout.service', () => {
     expect(resultado.tarifa_base).toBe(800000);
   });
 
+  test('calcula correctamente noches con fechas ISO completas', () => {
+    const reservaIso = {
+      fecha_entrada: '2099-06-01T00:00:00.000Z',
+      fecha_salida: '2099-06-05T00:00:00.000Z',
+      monto_pagado: 0,
+    };
+    const resultado = calcularLiquidacion({ reserva: reservaIso, tarifa, consumos: [] });
+    expect(resultado.tarifa_base).toBe(800000);
+  });
+
   test('suma consumos adicionales al total', () => {
     const resultado = calcularLiquidacion({ reserva, tarifa, consumos: [{ cantidad: 2, precio_unitario: 75000 }] });
     expect(resultado.total_consumos).toBe(150000);

@@ -17,9 +17,31 @@ export const ESTADO_HABITACION_POST_CHECKOUT = 'limpieza';
 export const ESTADOS_RESERVA_PERMITIDOS_CHECKOUT = new Set(['en_curso']);
 export const ESTADOS_HABITACION_CHECKOUT = new Set(['bueno', 'danos_menores', 'danos_graves', 'pendiente_revision']);
 
+function parseUtcDateOnly(value) {
+  if (!value) return null;
+
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate());
+  }
+
+  const raw = String(value).trim();
+  const isoDateMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoDateMatch) {
+    const [, year, month, day] = isoDateMatch;
+    return Date.UTC(Number(year), Number(month) - 1, Number(day));
+  }
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate());
+}
+
 export function diffDias(fechaEntrada, fechaSalida) {
-  const entrada = new Date(`${fechaEntrada}T00:00:00Z`);
-  const salida = new Date(`${fechaSalida}T00:00:00Z`);
+  const entrada = parseUtcDateOnly(fechaEntrada);
+  const salida = parseUtcDateOnly(fechaSalida);
+  if (entrada === null || salida === null || salida <= entrada) return 0;
+
   return Math.ceil((salida - entrada) / (1000 * 60 * 60 * 24));
 }
 
