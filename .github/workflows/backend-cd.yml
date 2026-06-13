@@ -1,0 +1,61 @@
+name: Backend CD
+
+on:
+  workflow_run:
+    workflows:
+      - Backend CI
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-cd-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Render
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - name: Validate deploy hook
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "${RENDER_DEPLOY_HOOK_URL}" ]; then
+            echo "Missing required secret: RENDER_DEPLOY_HOOK_URL"
+            exit 1
+          fi
+
+      - name: Trigger Render deploy
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          curl --fail --silent --show-error --request POST "${RENDER_DEPLOY_HOOK_URL}"
+
+      - name: Wait for backend health check
+        env:
+          BACKEND_HEALTH_URL: ${{ secrets.BACKEND_HEALTH_URL }}
+        run: |
+          if [ -z "${BACKEND_HEALTH_URL}" ]; then
+            echo "BACKEND_HEALTH_URL is not configured. Skipping health check."
+            exit 0
+          fi
+
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error "${BACKEND_HEALTH_URL}"; then
+              exit 0
+            fi
+            echo "Backend not ready yet. Attempt ${attempt}/30"
+            sleep 10
+          done
+          echo "Backend health check did not pass in time"
+          exit 1
