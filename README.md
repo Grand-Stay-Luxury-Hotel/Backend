@@ -31,6 +31,7 @@ DB_NAME_TEST=grandstay_test
 JWT_SECRET=change_me_min_32_chars_please_replace
 JWT_EXPIRES_IN=8h
 ADMIN_OTP=123456
+INTEGRANTES_CODE_SECRET=change_me_integrantes_rotation_secret
 
 PAYMENT_GATEWAY_URL=https://api.pasarela-mock.com
 PAYMENT_GATEWAY_KEY=mock_key
@@ -40,6 +41,7 @@ NODE_ENV=development
 ```
 
 `JWT_SECRET` debe tener al menos 32 caracteres. El rol `Administrador` requiere `otp` al iniciar sesion.
+`INTEGRANTES_CODE_SECRET` se usa para generar codigos rotativos de validacion de integrantes; debe ser secreto y distinto en produccion.
 
 ## Ejecucion
 

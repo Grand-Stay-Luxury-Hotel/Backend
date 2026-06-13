@@ -310,6 +310,35 @@ CREATE TABLE IF NOT EXISTS categorias_ambientales (
   activa BOOLEAN DEFAULT TRUE
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS integrantes_equipo (
+  id_integrante INT AUTO_INCREMENT PRIMARY KEY,
+  seudonimo VARCHAR(80) NOT NULL,
+  seudonimo_normalizado VARCHAR(80) NOT NULL,
+  nombre_completo VARCHAR(120) NOT NULL,
+  nombre_normalizado VARCHAR(120) NOT NULL,
+  grupo ENUM('backend', 'frontend') NOT NULL,
+  activo BOOLEAN DEFAULT TRUE,
+  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_integrantes_seudonimo (seudonimo_normalizado),
+  UNIQUE KEY uk_integrantes_nombre (nombre_normalizado),
+  INDEX idx_integrantes_grupo_activo (grupo, activo)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS integrantes_codigos_registro (
+  id_codigo INT AUTO_INCREMENT PRIMARY KEY,
+  codigo_hash CHAR(64) NOT NULL,
+  generado_por BIGINT UNSIGNED,
+  usado_por INT,
+  usado BOOLEAN DEFAULT FALSE,
+  usado_en TIMESTAMP NULL,
+  expira_en TIMESTAMP NOT NULL,
+  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_codigos_registro_hash (codigo_hash),
+  INDEX idx_codigos_registro_estado (usado, expira_en),
+  CONSTRAINT fk_codigos_registro_usado_por FOREIGN KEY (usado_por) REFERENCES integrantes_equipo(id_integrante)
+) ENGINE=InnoDB;
+
 INSERT IGNORE INTO categorias_ambientales (codigo, nombre) VALUES
   ('basura', 'Basura'),
   ('contaminacion_hidrica', 'Contaminacion hidrica'),

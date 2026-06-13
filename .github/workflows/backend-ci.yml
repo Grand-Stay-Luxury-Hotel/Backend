@@ -41,6 +41,20 @@ jobs:
     name: Tests
     runs-on: ubuntu-latest
 
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: grandstay_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
     env:
       NODE_ENV: test
       JWT_SECRET: ci_jwt_secret_with_more_than_32_chars
@@ -51,10 +65,11 @@ jobs:
       DB_HOST: localhost
       DB_PORT: "3306"
       DB_NAME: grandstay_db
-      DB_NAME_TEST: grandstay_test
+      DB_NAME_TEST: grandstay_db
       DB_USER: root
       DB_PASSWORD: root
       DB_SSL_MODE: DISABLED
+      INTEGRANTES_CODE_SECRET: ci_integrantes_secret_with_more_than_32_chars
 
     steps:
       - name: Checkout
@@ -70,11 +85,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install MySQL client
+        run: sudo apt-get update && sudo apt-get install -y mysql-client
+
+      - name: Load database schema
+        run: |
+          mysql --protocol=tcp -h 127.0.0.1 -P 3306 -uroot -proot < database/grandstay_db.sql
+          mysql --protocol=tcp -h 127.0.0.1 -P 3306 -uroot -proot < database/seed-data.sql
+
       - name: Run unit tests
-        run: npm run test:unit -- --runInBand
+        run: npx jest src/tests/unit --runInBand --coverage=false --forceExit
 
       - name: Run integration tests
-        run: npm run test:integration -- --runInBand
+        run: npx jest src/tests/integration --runInBand --coverage=false --forceExit
 
   docker:
     name: Docker build
