@@ -7,6 +7,8 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 TRUNCATE TABLE log_auditoria;
 TRUNCATE TABLE reportes;
+TRUNCATE TABLE integrantes_codigos_registro;
+TRUNCATE TABLE integrantes_equipo;
 TRUNCATE TABLE categorias_ambientales;
 TRUNCATE TABLE notificaciones;
 TRUNCATE TABLE consumo_insumos;
@@ -75,6 +77,14 @@ INSERT INTO especialidades_tecnicas (id_especialidad, nombre, descripcion) VALUE
 
 INSERT INTO servicio_tecnico (id_tecnico, id_usuario, id_especialidad, nivel_certificacion, turno, fecha_ingreso) VALUES
   (1, 5, 1, 'Nivel II', 'rotativo', '2023-02-01');
+
+INSERT INTO integrantes_equipo
+  (id_integrante, seudonimo, seudonimo_normalizado, nombre_completo, nombre_normalizado, grupo, activo)
+VALUES
+  (1, 'Akczul', 'akczul', 'Juan Diego Delgado Espana', 'juan diego delgado espana', 'backend', TRUE),
+  (2, 'Alexsters', 'alexsters', 'Yamith Alexander Ardila Cabrera', 'yamith alexander ardila cabrera', 'backend', TRUE),
+  (3, 'JDav117', 'jdav117', 'Jhoan David Ortega Ramos', 'jhoan david ortega ramos', 'frontend', TRUE),
+  (4, 'Pan', 'pan', 'Fabian Andres Coral Garcia', 'fabian andres coral garcia', 'frontend', TRUE);
 
 INSERT INTO huespedes
   (id_huesped, id_usuario, nombres, apellidos, email, num_documento, telefono)

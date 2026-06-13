@@ -17,6 +17,7 @@ import tarifasRoutes from './routes/tarifas.routes.js';
 import serviciosRoutes from './routes/servicios.routes.js';
 import facturasRoutes from './routes/facturas.routes.js';
 import auditoriaRoutes from './routes/auditoria.routes.js';
+import integrantesRoutes from './routes/integrantes.routes.js';
 import { swaggerSpec } from './docs/swagger.js';
 import { errorResponse } from './utils/errors.js';
 import { query } from './utils/db.js';
@@ -83,6 +84,8 @@ export function createApp() {
   app.use('/servicios', serviciosRoutes);
   app.use('/facturas', facturasRoutes);
   app.use('/auditoria', auditoriaRoutes);
+  app.use('/integrantes', integrantesRoutes);
+  app.use('/api/integrantes', integrantesRoutes);
 
   app.use(async (_req, res, next) => {
     try {
