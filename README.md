@@ -280,6 +280,22 @@ npm run test:integration
 
 El proyecto exige cobertura global minima de 80%.
 
+## CI/CD en GitHub Actions
+
+Los workflows del backend estan en `.github/workflows`:
+
+- `backend-ci.yml`: instala dependencias con `npm ci`, ejecuta pruebas unitarias, pruebas de integracion y valida que la imagen Docker del backend construya correctamente.
+- `backend-cd.yml`: despliega en Render cuando `Backend CI` termina exitosamente en la rama `main`, o manualmente desde `workflow_dispatch`.
+
+Configurar estos secretos en GitHub antes de usar CD:
+
+```text
+RENDER_DEPLOY_HOOK_URL=https://api.render.com/deploy/srv_xxx?key=xxx
+BACKEND_HEALTH_URL=https://grand-stay-backend.onrender.com/health
+```
+
+`RENDER_DEPLOY_HOOK_URL` es obligatorio para desplegar. `BACKEND_HEALTH_URL` es opcional; si existe, el workflow espera a que `/health` responda correctamente despues del deploy.
+
 ## Pendientes conocidos
 
 - Mantener el schema remoto de Aiven alineado con `database/grandstay_db.sql`.
