@@ -2,7 +2,7 @@ import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { createApp } from '../../app.js';
 import { obtenerCodigoRotativo } from '../../services/integrantes.service.js';
-import { pool, query } from '../../utils/db.js';
+import { query } from '../../utils/db.js';
 
 const secreto = 'secreto_seguro_de_pruebas_123456789';
 const app = createApp();
@@ -19,10 +19,6 @@ describe('Integracion integrantes', () => {
       DELETE FROM integrantes_equipo
       WHERE seudonimo_normalizado NOT IN ('akczul', 'alexsters', 'jdav117', 'pan')
     `);
-  });
-
-  afterAll(async () => {
-    await pool.end();
   });
 
   function tokenAdmin() {

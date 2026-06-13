@@ -29,7 +29,6 @@ CREATE TABLE IF NOT EXISTS integrantes_codigos_registro (
   creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uk_codigos_registro_hash (codigo_hash),
   INDEX idx_codigos_registro_estado (usado, expira_en),
-  CONSTRAINT fk_codigos_registro_generado_por FOREIGN KEY (generado_por) REFERENCES usuarios(id_usuario),
   CONSTRAINT fk_codigos_registro_usado_por FOREIGN KEY (usado_por) REFERENCES integrantes_equipo(id_integrante)
 ) ENGINE=InnoDB;
 

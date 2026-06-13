@@ -6,7 +6,6 @@ import {
   validarIntegrante,
 } from '../../services/integrantes.service.js';
 import { query } from '../../utils/db.js';
-import { pool } from '../../utils/db.js';
 
 const FECHA_FIJA = new Date('2026-06-13T15:00:00.000Z');
 jest.setTimeout(30000);
@@ -18,10 +17,6 @@ describe('integrantes.service', () => {
       DELETE FROM integrantes_equipo
       WHERE seudonimo_normalizado NOT IN ('akczul', 'alexsters', 'jdav117', 'pan')
     `);
-  });
-
-  afterAll(async () => {
-    await pool.end();
   });
 
   test('lista integrantes sin exponer identificadores', async () => {
